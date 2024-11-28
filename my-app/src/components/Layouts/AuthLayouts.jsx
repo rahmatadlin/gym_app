@@ -17,6 +17,7 @@ const AuthLayout = (props) => {
 };
 
 const Navigation = ({ type }) => {
+
     if (type === "login") {
         return (
             <p className="text-sm mt-5 text-center">
@@ -29,30 +30,17 @@ const Navigation = ({ type }) => {
     } else {
         return (
             <p className="text-sm mt-5 text-center">
-            Already have an account? {" "}
-            <Link to="/login" className="font-bold text-blue-600">
-                Login
-            </Link>
-        </p>
+                Already have an account? {" "}
+                <Link to="/login" className="font-bold text-blue-600">
+                    Login
+                </Link>
+            </p>
         )
     }
+
 }
 
 
-{/* {type === 'login' ? (
-                        <>
-                            Don't have an account?{" "}
-                            <Link to="/register" className="font-bold text-blue-600">
-                                Register
-                            </Link>
-                        </>
-                    ) : (
-                        <>
-                            Already have an account?{" "}
-                            <Link to="/login" className="font-bold text-blue-600">
-                                Login
-                            </Link>
-                        </>
-                    )} */}
+
 
 export default AuthLayout;
