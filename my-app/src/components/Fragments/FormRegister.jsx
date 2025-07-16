@@ -6,7 +6,7 @@ const FormRegister = () => {
         <form action="">
             <div className="">
                 <InputForm
-                    label="Fullname"
+                    label="Nama Lengkap"
                     type="text"
                     placeholder="insert your name here.."
                     name="fullname"

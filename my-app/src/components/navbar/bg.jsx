@@ -109,35 +109,35 @@ const Gallery = () => {
           <div>
             <img
               className="h-auto max-w-full rounded-lg"
-              src="https://flowbite.s3.amazonaws.com/docs/gallery/square/image-1.jpg"
+              src="/public/images/gym-2.jpg"
               alt=""
             />
           </div>
           <div>
             <img
               className="h-auto max-w-full rounded-lg"
-              src="https://flowbite.s3.amazonaws.com/docs/gallery/square/image-2.jpg"
+              src="https://img.freepik.com/free-photo/man-working-out-gym_23-2148197777.jpg?uid=R174614052&semt=ais_hybrid"
               alt=""
             />
           </div>
           <div>
             <img
               className="h-auto max-w-full rounded-lg"
-              src="https://flowbite.s3.amazonaws.com/docs/gallery/square/image-3.jpg"
+              src="https://img.freepik.com/free-photo/people-doing-indoor-cycling_23-2149270239.jpg?t=st=1733489134~exp=1733492734~hmac=48187270748180d1bc115dbc68dd1c737ca9828203763795dd0def289a4979c3&w=996"
               alt=""
             />
           </div>
           <div>
             <img
               className="h-auto max-w-full rounded-lg"
-              src="https://flowbite.s3.amazonaws.com/docs/gallery/square/image-4.jpg"
+              src="https://img.freepik.com/free-photo/young-muscular-woman-practicing-gym_155003-35525.jpg?uid=R174614052&semt=ais_hybrid"
               alt=""
             />
           </div>
           <div>
             <img
               className="h-auto max-w-full rounded-lg"
-              src="https://flowbite.s3.amazonaws.com/docs/gallery/square/image-5.jpg"
+              src="https://img.freepik.com/free-photo/close-up-hand-holding-kettlebell_23-2149307701.jpg?uid=R174614052&semt=ais_hybrid"
               alt=""
             />
           </div>

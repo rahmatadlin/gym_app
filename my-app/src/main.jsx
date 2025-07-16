@@ -8,6 +8,8 @@ import ErrorPage from './pages/404.jsx'
 import ProductsPage from './pages/products.jsx';
 import HomePage from './pages/homepages.jsx'
 
+import Adminhomepages from './admin/adminhomepages.jsx';
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -15,13 +17,17 @@ const router = createBrowserRouter([
     element: <HomePage /> ,
     errorElement: <ErrorPage />
   },
-  {
-    // path: "/homepage",
-    // element: <HomePage />
-  },
+  // {
+  //   path: "/admindashboard",
+  //   element: <Admindashboard />
+  // },
   {
     path: "/login",
     element:<LoginPage />
+  },
+  {
+    path: "/adminhomepages",
+    element:<Adminhomepages />
   },
   {
     path: "/register",

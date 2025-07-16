@@ -12,9 +12,6 @@ const HomePage = () => {
         <CustomControlsGallery />
        
 
-
-
-
         {/* Main Content */}
         <main className="flex-grow  dark:bg-gray-800">
           {/* Hero Section */}
