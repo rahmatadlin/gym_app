@@ -2,39 +2,44 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import LoginPage from './pages/login.jsx'
-import RegisterPage from './pages/register.jsx'
 import ErrorPage from './pages/404.jsx'
 import ProductsPage from './pages/products.jsx';
 import HomePage from './pages/homepages.jsx'
-import Adminhomepages from './admin/adminhomepages.jsx';
+import AdminDashboard from './admin/AdminDashboard.jsx';
+import CoachDashboard from './coach/CoachDashboard.jsx';
+import MemberDashboard from './member/MemberDashboard.jsx';
+import LoginPage from './pages/loginPage.jsx'
+import RegisterPage from './pages/registerPage.jsx'
 
 const router = createBrowserRouter([
   {
     path: "/",
-    // element: <div>Wellcome</div>,
     element: <HomePage /> ,
     errorElement: <ErrorPage />
   },
-  // {
-  //   path: "/admindashboard",
-  //   element: <Admindashboard />
-  // },
+  {
+    path: "/products",
+    element: <ProductsPage />
+  },
+  {
+    path: "/admin",
+    element: <AdminDashboard />
+  },
+  {
+    path: "/coach",
+    element: <CoachDashboard />
+  },
+  {
+    path: "/member",
+    element: <MemberDashboard />
+  },
   {
     path: "/login",
     element:<LoginPage />
   },
   {
-    path: "/adminhomepages",
-    element:<Adminhomepages />
-  },
-  {
     path: "/register",
     element: <RegisterPage />
-  },
-  {
-    path: "/products",
-    element: <ProductsPage />
   }
 ])
 

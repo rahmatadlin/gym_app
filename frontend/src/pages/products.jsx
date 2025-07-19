@@ -34,27 +34,6 @@ const ProductsPage = (props) => {
                 <span className="text-base font-normal text-gray-500 dark:text-gray-400">/bulan</span>
               </span>
             </div>
-            <a
-              href="#"
-              className="inline-flex items-center px-4 py-2.5 text-base font-medium text-center text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl hover:from-blue-600 hover:to-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 transition-all duration-300 shadow-lg"
-            >
-              Join Now
-              <svg
-                className="w-4 h-4 ml-2"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 14 10"
-              >
-                <path
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M1 5h12m0 0L9 1m4 4L9 9"
-                />
-              </svg>
-            </a>
           </div>
         </div>
       </div>
@@ -90,27 +69,6 @@ const ProductsPage = (props) => {
                 <span className="text-base font-normal text-gray-500 dark:text-gray-400">/bulan</span>
               </span>
             </div>
-            <a
-              href="#"
-              className="inline-flex items-center px-4 py-2.5 text-base font-medium text-center text-white bg-gradient-to-r from-green-500 to-green-600 rounded-xl hover:from-green-600 hover:to-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 dark:focus:ring-green-800 transition-all duration-300 shadow-lg"
-            >
-              Join Now
-              <svg
-                className="w-4 h-4 ml-2"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 14 10"
-              >
-                <path
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M1 5h12m0 0L9 1m4 4L9 9"
-                />
-              </svg>
-            </a>
           </div>
         </div>
       </div>
