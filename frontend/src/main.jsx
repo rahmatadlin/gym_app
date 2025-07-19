@@ -7,7 +7,6 @@ import RegisterPage from './pages/register.jsx'
 import ErrorPage from './pages/404.jsx'
 import ProductsPage from './pages/products.jsx';
 import HomePage from './pages/homepages.jsx'
-
 import Adminhomepages from './admin/adminhomepages.jsx';
 
 const router = createBrowserRouter([
