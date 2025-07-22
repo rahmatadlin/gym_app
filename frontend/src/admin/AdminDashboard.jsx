@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { useAuth } from '../components/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const menuItems = [
   { key: 'package', label: 'Package', icon: '📦' },
@@ -36,10 +38,13 @@ function AdminDashboard() {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleMenuClick = (key) => {
     if (key === 'logout') {
-      alert('Logout berhasil!');
+      logout();
+      navigate('/login');
       return;
     }
     setSelectedMenu(key);

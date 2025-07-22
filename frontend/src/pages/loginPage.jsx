@@ -1,20 +1,37 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../components/AuthContext.jsx';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Dummy validation
     if (!username || !password) {
       setError('Username dan password wajib diisi!');
       return;
     }
     setError('');
-    // Implement login logic here
-    alert('Login berhasil!');
+    try {
+      const res = await fetch('http://localhost:3000/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Login gagal');
+      login(data.user, data.token);
+      // Redirect by role
+      if (data.user.role === 'admin') navigate('/admin');
+      else if (data.user.role === 'coach') navigate('/coach');
+      else navigate('/member');
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (

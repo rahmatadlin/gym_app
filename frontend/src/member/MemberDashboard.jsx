@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import ProductsPage from '../pages/products';
+import { useAuth } from '../components/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const memberProfile = {
   name: 'Member Budi',
@@ -23,6 +25,8 @@ function MemberDashboard() {
   const [selectedMenu, setSelectedMenu] = useState('package');
   const [editProfile, setEditProfile] = useState({ ...memberProfile });
   const [imagePreview, setImagePreview] = useState(memberProfile.image);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleMenuClick = (key) => {
     setSelectedMenu(key);
@@ -101,7 +105,7 @@ function MemberDashboard() {
         {/* Logout Button */}
         <button
           className="flex items-center gap-3 py-3 px-4 rounded-lg text-left transition-all font-medium hover:bg-blue-700/50 mt-8"
-          onClick={() => alert('Logout berhasil!')}
+          onClick={() => { logout(); navigate('/login'); }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 12H9m0 0l3-3m-3 3l3 3" />

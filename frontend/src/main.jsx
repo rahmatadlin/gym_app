@@ -10,6 +10,8 @@ import CoachDashboard from './coach/CoachDashboard.jsx';
 import MemberDashboard from './member/MemberDashboard.jsx';
 import LoginPage from './pages/loginPage.jsx'
 import RegisterPage from './pages/registerPage.jsx'
+import { AuthProvider } from './components/AuthContext.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 const router = createBrowserRouter([
   {
@@ -23,15 +25,15 @@ const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    element: <AdminDashboard />
+    element: <ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>
   },
   {
     path: "/coach",
-    element: <CoachDashboard />
+    element: <ProtectedRoute role="coach"><CoachDashboard /></ProtectedRoute>
   },
   {
     path: "/member",
-    element: <MemberDashboard />
+    element: <ProtectedRoute role="member"><MemberDashboard /></ProtectedRoute>
   },
   {
     path: "/login",
@@ -45,7 +47,9 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </React.StrictMode>,
 )
 
