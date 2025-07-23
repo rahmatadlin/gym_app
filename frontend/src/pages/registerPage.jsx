@@ -1,26 +1,58 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/ToastContainer.jsx';
 
 function RegisterPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+    role: 'member'
+  });
+  const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
 
-  const handleSubmit = (e) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (!username || !password || !confirmPassword) {
-      setError('Semua field wajib diisi!');
+
+    // Validation
+    if (!formData.username || !formData.password || !formData.confirmPassword || !formData.name) {
+      showError('Username, password, confirm password, and name are required!');
       return;
     }
-    if (password !== confirmPassword) {
-      setError('Password dan konfirmasi password tidak sama!');
+    if (formData.password !== formData.confirmPassword) {
+      showError('Password and confirm password do not match!');
       return;
     }
-    // Implement register logic here
-    setSuccess('Registrasi berhasil!');
+    if (formData.password.length < 6) {
+      showError('Password must be at least 6 characters!');
+      return;
+    }
+
+    try {
+      const res = await fetch('http://localhost:3000/api/users/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+          name: formData.name,
+          role: formData.role
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Registration failed');
+      showSuccess('Registration successful! Redirecting to login...');
+      setTimeout(() => navigate('/login'), 2000);
+    } catch (err) {
+      showError(err.message);
+    }
   };
 
   return (
@@ -55,11 +87,24 @@ function RegisterPage() {
                   type="text"
                   autoComplete="username"
                   className="pl-10 mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
+                  value={formData.username}
+                  onChange={handleChange}
                   placeholder="Enter your username"
                 />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter your full name"
+              />
             </div>
                         
             <div>
@@ -76,8 +121,8 @@ function RegisterPage() {
                   type="password"
                   autoComplete="new-password"
                   className="pl-10 mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  value={formData.password}
+                  onChange={handleChange}
                   placeholder="Create a password"
                 />
               </div>
@@ -97,36 +142,18 @@ function RegisterPage() {
                   type="password"
                   autoComplete="new-password"
                   className="pl-10 mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
                   placeholder="Confirm your password"
                 />
               </div>
             </div>
             
-            {error && (
-              <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                {error}
-              </div>
-            )}
-            
-            {success && (
-              <div className="p-3 bg-green-50 text-green-600 rounded-lg text-sm flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                {success}
-              </div>
-            )}
-            
             <button
               type="submit"
               className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-semibold rounded-lg shadow-md transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center"
             >
-              <span>Register</span>
+              <span>Create Account</span>
             </button>
           </form>
           
@@ -141,17 +168,17 @@ function RegisterPage() {
         </div>
       </div>
 
-      {/* Right: Image - Now wider (3:2 ratio) (moved to right) */}
+      {/* Right: Image - Now wider (3:2 ratio) */}
       <div className="hidden md:block w-2/3 relative">
         <img
           src="https://plus.unsplash.com/premium_photo-1664304662480-f9cec19c3f16?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
           alt="Gym Illustration"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r  bg-opacity-10 flex items-center justify-center">
+        <div className="absolute inset-0 bg-gradient-to-r bg-opacity-40 flex items-center justify-center">
           <div className="text-white p-8 max-w-lg">
-            <h2 className="text-4xl font-bold mb-4">Join Montana Fitness</h2>
-            <p className="text-xl mb-6">Start your fitness journey today.</p>
+            <h2 className="text-4xl font-bold mb-4">Montana Fitness</h2>
+            <p className="text-xl mb-6">Transform your body, transform your life.</p>
             <div className="flex items-center">
               <div className="w-12 h-1 bg-yellow-400 mr-4"></div>
               <span>Premium Fitness Experience</span>

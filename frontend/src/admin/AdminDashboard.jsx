@@ -1,18 +1,19 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/ToastContainer.jsx';
 
 const menuItems = [
   { key: 'package', label: 'Package', icon: '📦' },
-  { key: 'member', label: 'List Member', icon: '👥' },
+  { key: 'member', label: 'Member', icon: '👥' },
 ];
 
 const dummyPackages = [
-  { id: 1, name: 'Personal Trainer', price: 1299000, duration: '1 Month' },
-  { id: 2, name: 'Group Fitness Class', price: 799000, duration: '1 Month' },
-  { id: 3, name: 'Yoga Class', price: 599000, duration: '3 Months' },
-  { id: 4, name: 'Premium Membership', price: 2499000, duration: '6 Months' },
-  { id: 5, name: 'Basic Membership', price: 899000, duration: '1 Month' },
+  { id: 1, name: 'Basic Package', price: '500.000', duration: '1 Month', status: 'Active' },
+  { id: 2, name: 'Premium Package', price: '1.200.000', duration: '3 Months', status: 'Active' },
+  { id: 3, name: 'VIP Package', price: '2.000.000', duration: '6 Months', status: 'Inactive' },
+  { id: 4, name: 'Student Package', price: '300.000', duration: '1 Month', status: 'Active' },
+  { id: 5, name: 'Family Package', price: '3.500.000', duration: '12 Months', status: 'Active' },
 ];
 
 const dummyMembers = [
@@ -40,10 +41,12 @@ function AdminDashboard() {
   const itemsPerPage = 3;
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { showSuccess } = useToast();
 
   const handleMenuClick = (key) => {
     if (key === 'logout') {
       logout();
+      showSuccess('Logout successful! See you next time!');
       navigate('/login');
       return;
     }

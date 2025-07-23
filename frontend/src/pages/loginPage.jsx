@@ -1,21 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext.jsx';
+import { useToast } from '../components/ToastContainer.jsx';
 
 function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { showSuccess, showError } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
-      setError('Username dan password wajib diisi!');
+      showError('Username dan password wajib diisi!');
       return;
     }
-    setError('');
     try {
       const res = await fetch('http://localhost:3000/api/users/login', {
         method: 'POST',
@@ -25,12 +25,13 @@ function LoginPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Login gagal');
       login(data.user, data.token);
+      showSuccess('Login successful! Welcome back!');
       // Redirect by role
       if (data.user.role === 'admin') navigate('/admin');
       else if (data.user.role === 'coach') navigate('/coach');
       else navigate('/member');
     } catch (err) {
-      setError(err.message);
+      showError(err.message);
     }
   };
 
@@ -112,16 +113,6 @@ function LoginPage() {
                 />
               </div>
             </div>
-            
-
-            {error && (
-              <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                {error}
-              </div>
-            )}
             
             <button
               type="submit"

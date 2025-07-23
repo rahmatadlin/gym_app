@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/ToastContainer.jsx';
 
 const menuItems = [
   { key: 'member', label: 'List Member', icon: '👥' },
@@ -32,10 +33,12 @@ function CoachDashboard() {
   const itemsPerPage = 3;
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { showSuccess } = useToast();
 
   const handleMenuClick = (key) => {
     if (key === 'logout') {
       logout();
+      showSuccess('Logout successful! See you next time!');
       navigate('/login');
       return;
     }

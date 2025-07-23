@@ -12,6 +12,7 @@ import LoginPage from './pages/loginPage.jsx'
 import RegisterPage from './pages/registerPage.jsx'
 import { AuthProvider } from './components/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import { ToastProvider } from './components/ToastContainer.jsx';
 
 const router = createBrowserRouter([
   {
@@ -48,7 +49,9 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthProvider>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </AuthProvider>
   </React.StrictMode>,
 )
