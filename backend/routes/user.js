@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const validate = require('../middleware/validate');
-const auth = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const isAdmin = require('../middleware/role');
 const multer = require('multer');
 const path = require('path');
@@ -38,10 +38,10 @@ router.post('/register', upload.single('user_image'), validate.register, userCon
 router.post('/login', validate.login, userController.login);
 
 // CRUD (protected)
-router.get('/', auth, userController.getAllUsers);
-router.get('/:id', auth, userController.getUserById);
-router.post('/', auth, isAdmin, upload.single('user_image'), userController.createUser);
-router.put('/:id', auth, isAdmin, upload.single('user_image'), userController.updateUser);
-router.delete('/:id', auth, isAdmin, userController.deleteUser);
+router.get('/', authenticateToken, userController.getAllUsers);
+router.get('/:id', authenticateToken, userController.getUserById);
+router.post('/', authenticateToken, isAdmin, upload.single('user_image'), userController.createUser);
+router.put('/:id', authenticateToken, isAdmin, upload.single('user_image'), userController.updateUser);
+router.delete('/:id', authenticateToken, isAdmin, userController.deleteUser);
 
 module.exports = router; 

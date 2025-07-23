@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const app = express();
 const userRoutes = require('./routes/user');
+const packageRoutes = require('./routes/package');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/users', userRoutes);
+app.use('/api/packages', packageRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
