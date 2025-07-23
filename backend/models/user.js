@@ -21,6 +21,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     password: DataTypes.STRING,
     name: DataTypes.STRING,
+    date_of_birth: DataTypes.DATE,
     phone_number: DataTypes.STRING,
     gender: DataTypes.STRING,
     address: DataTypes.TEXT,
@@ -34,7 +35,10 @@ module.exports = (sequelize, DataTypes) => {
     sequelize,
     modelName: 'User',
     paranoid: true,
-    timestamps: true
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+    deletedAt: 'deleted_at'
   });
   return User;
 };

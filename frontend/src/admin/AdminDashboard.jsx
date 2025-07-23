@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
@@ -16,32 +16,74 @@ const dummyPackages = [
   { id: 5, name: 'Family Package', price: '3.500.000', duration: '12 Months', status: 'Active' },
 ];
 
-const dummyMembers = [
-  { id: 1, name: 'Budi Santoso', username: 'budi123', status: 'Active', joinDate: '2023-01-15' },
-  { id: 2, name: 'Siti Rahayu', username: 'siti456', status: 'Inactive', joinDate: '2023-02-20' },
-  { id: 3, name: 'Ahmad Fauzi', username: 'ahmad789', status: 'Active', joinDate: '2023-03-10' },
-  { id: 4, name: 'Dewi Lestari', username: 'dewi101', status: 'Active', joinDate: '2023-04-05' },
-  { id: 5, name: 'Rudi Hermawan', username: 'rudi202', status: 'Inactive', joinDate: '2023-01-30' },
-];
-
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 };
 
 const formatDate = (dateString) => {
-  const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  return new Date(dateString).toLocaleDateString('id-ID', options);
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+  const timeOptions = { hour: '2-digit', minute: '2-digit' };
+  
+  const dateStr = date.toLocaleDateString('id-ID', dateOptions);
+  const timeStr = date.toLocaleTimeString('id-ID', timeOptions);
+  
+  return `${dateStr} - ${timeStr}`;
 };
 
 function AdminDashboard() {
   const [selectedMenu, setSelectedMenu] = useState('package');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 3;
-  const { logout } = useAuth();
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    username: '',
+    password: '',
+    role: 'member',
+    phone_number: '',
+    date_of_birth: '',
+    address: '',
+    user_image: null
+  });
+  const [imagePreview, setImagePreview] = useState(null);
+  const itemsPerPage = 10;
+  const { logout, token } = useAuth();
   const navigate = useNavigate();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
+
+  // Fetch members from API
+  const fetchMembers = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch members');
+      const data = await response.json();
+      setMembers(data);
+    } catch (error) {
+      showError('Failed to fetch members: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedMenu === 'member') {
+      fetchMembers();
+    }
+  }, [selectedMenu]);
 
   const handleMenuClick = (key) => {
     if (key === 'logout') {
@@ -52,7 +94,7 @@ function AdminDashboard() {
     }
     setSelectedMenu(key);
     setSearchTerm('');
-    setSortConfig({ key: null, direction: 'asc' });
+    setSortConfig({ key: 'created_at', direction: 'asc' });
     setCurrentPage(1);
   };
 
@@ -64,8 +106,176 @@ function AdminDashboard() {
     setSortConfig({ key, direction });
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        showError('Please select a valid image file (JPG, PNG, GIF, WebP)');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showError('Image size must be less than 5MB');
+        return;
+      }
+      
+      setFormData({...formData, user_image: file});
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCreateMember = async (e) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!formData.name || !formData.username || !formData.password) {
+      showError('Name, username, and password are required!');
+      return;
+    }
+    
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('username', formData.username);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('role', formData.role);
+      formDataToSend.append('phone_number', formData.phone_number);
+      formDataToSend.append('date_of_birth', formData.date_of_birth);
+      formDataToSend.append('address', formData.address);
+      if (formData.user_image) {
+        formDataToSend.append('user_image', formData.user_image);
+      }
+      
+      const response = await fetch('http://localhost:3000/api/users/register', {
+        method: 'POST',
+        body: formDataToSend
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to create member');
+      showSuccess('Member created successfully!');
+      setShowCreateModal(false);
+      setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: '', address: '', user_image: null });
+      setImagePreview(null);
+      fetchMembers();
+    } catch (error) {
+      showError('Failed to create member: ' + error.message);
+    }
+  };
+
+  const handleEditMember = async (e) => {
+    e.preventDefault();
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('username', formData.username);
+      formDataToSend.append('role', formData.role);
+      formDataToSend.append('phone_number', formData.phone_number);
+      formDataToSend.append('date_of_birth', formData.date_of_birth);
+      formDataToSend.append('address', formData.address);
+      
+      // Only add password if it's not empty
+      if (formData.password && formData.password.trim() !== '') {
+        formDataToSend.append('password', formData.password);
+      }
+      
+      // Only add image if a new one is selected
+      if (formData.user_image && formData.user_image instanceof File) {
+        formDataToSend.append('user_image', formData.user_image);
+      }
+      
+      const response = await fetch(`http://localhost:3000/api/users/${selectedMember.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formDataToSend
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update member');
+      showSuccess('Member updated successfully!');
+      setShowEditModal(false);
+      setSelectedMember(null);
+      setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: '', address: '', user_image: null });
+      setImagePreview(null);
+      fetchMembers();
+    } catch (error) {
+      showError('Failed to update member: ' + error.message);
+    }
+  };
+
+  const handleDeleteMember = async () => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/users/${selectedMember.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to delete member');
+      showSuccess('Member deleted successfully!');
+      setShowDeleteModal(false);
+      setSelectedMember(null);
+      fetchMembers();
+    } catch (error) {
+      showError('Failed to delete member: ' + error.message);
+    }
+  };
+
+  const openCreateModal = () => {
+    setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: '', address: '', user_image: null });
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (member) => {
+    setSelectedMember(member);
+    
+    // Format date for input field (YYYY-MM-DD)
+    const formatDateForInput = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+    };
+    
+    setFormData({
+      name: member.name || '',
+      username: member.username || '',
+      password: '',
+      role: member.role || 'member',
+      phone_number: member.phone_number || '',
+      date_of_birth: formatDateForInput(member.date_of_birth),
+      address: member.address || '',
+      user_image: null
+    });
+    
+    // Set image preview if member has an image
+    if (member.user_image) {
+      // Convert relative path to full URL
+      const imageUrl = `http://localhost:3000${member.user_image}`;
+      setImagePreview(imageUrl);
+    } else {
+      setImagePreview(null);
+    }
+    
+    setShowEditModal(true);
+  };
+
+  const openDeleteModal = (member) => {
+    setSelectedMember(member);
+    setShowDeleteModal(true);
+  };
+
   const filteredData = useMemo(() => {
-    let data = selectedMenu === 'package' ? [...dummyPackages] : [...dummyMembers];
+    let data = selectedMenu === 'package' ? [...dummyPackages] : [...members];
     
     // Filter by search term
     if (searchTerm) {
@@ -80,10 +290,19 @@ function AdminDashboard() {
     // Sort data
     if (sortConfig.key) {
       data.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+        
+        // Handle date sorting
+        if (sortConfig.key === 'created_at' || sortConfig.key === 'updated_at') {
+          aVal = new Date(aVal || 0);
+          bVal = new Date(bVal || 0);
+        }
+        
+        if (aVal < bVal) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
+        if (aVal > bVal) {
           return sortConfig.direction === 'asc' ? 1 : -1;
         }
         return 0;
@@ -91,7 +310,7 @@ function AdminDashboard() {
     }
     
     return data;
-  }, [selectedMenu, searchTerm, sortConfig]);
+  }, [selectedMenu, searchTerm, sortConfig, members]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -192,6 +411,17 @@ function AdminDashboard() {
                   Add Package
                 </button>
               )}
+              {selectedMenu === 'member' && (
+                <button 
+                  onClick={openCreateModal}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  Add Member
+                </button>
+              )}
             </div>
           </div>
 
@@ -231,17 +461,14 @@ function AdminDashboard() {
                   </tr>
                 ) : (
                   <tr>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('id')}
-                    >
-                      ID {getSortIndicator('id')}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      No
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort('name')}
                     >
-                      Member Name {getSortIndicator('name')}
+                      Nama Member {getSortIndicator('name')}
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
@@ -251,22 +478,43 @@ function AdminDashboard() {
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('status')}
+                      onClick={() => handleSort('role')}
                     >
-                      Status {getSortIndicator('status')}
+                      Role {getSortIndicator('role')}
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('joinDate')}
+                      onClick={() => handleSort('phone_number')}
                     >
-                      Join Date {getSortIndicator('joinDate')}
+                      Phone Number {getSortIndicator('phone_number')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      Created At {getSortIndicator('created_at')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('updated_at')}
+                    >
+                      Updated At {getSortIndicator('updated_at')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 )}
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentItems.length > 0 ? (
-                  currentItems.map((item) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan={selectedMenu === 'package' ? 5 : 8} className="px-6 py-4 text-center text-sm text-gray-500">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : currentItems.length > 0 ? (
+                  currentItems.map((item, index) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                       {selectedMenu === 'package' ? (
                         <>
@@ -290,32 +538,62 @@ function AdminDashboard() {
                       ) : (
                         <>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.id}
+                            {(currentPage - 1) * itemsPerPage + index + 1}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-                                {item.name.charAt(0)}
-                              </div>
+                              {item.user_image ? (
+                                <img 
+                                  src={`http://localhost:3000${item.user_image}`}
+                                  alt={item.name}
+                                  className="h-10 w-10 rounded-full object-cover border-2 border-gray-200"
+                                />
+                              ) : (
+                                <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                                  {item.name?.charAt(0) || '?'}
+                                </div>
+                              )}
                               <div className="ml-4">
-                                <div className="font-medium text-gray-900">{item.name}</div>
+                                <div className="font-medium text-gray-900">{item.name || '-'}</div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            @{item.username}
+                            @{item.username || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              item.status === 'Active' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
+                              item.role === 'admin' 
+                                ? 'bg-red-100 text-red-800'
+                                : item.role === 'coach'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-green-100 text-green-800'
                             }`}>
-                              {item.status}
+                              {item.role || '-'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(item.joinDate)}
+                            {item.phone_number || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(item.created_at)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(item.updated_at)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button 
+                              onClick={() => openEditModal(item)}
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => openDeleteModal(item)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
                           </td>
                         </>
                       )}
@@ -323,7 +601,7 @@ function AdminDashboard() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={selectedMenu === 'package' ? 5 : 5} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={selectedMenu === 'package' ? 5 : 8} className="px-6 py-4 text-center text-sm text-gray-500">
                       No data found
                     </td>
                   </tr>
@@ -369,6 +647,253 @@ function AdminDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Create Member Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+            <h3 className="text-lg font-semibold mb-4">Create New Member</h3>
+            <form onSubmit={handleCreateMember}>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={(e) => setFormData({...formData, username: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({...formData, role: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="member">Member</option>
+                    <option value="coach">Coach</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={formData.phone_number}
+                    onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={formData.date_of_birth}
+                    onChange={(e) => setFormData({...formData, date_of_birth: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Profile Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <img src={imagePreview} alt="Preview" className="max-w-sm h-auto rounded-md" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+            <h3 className="text-lg font-semibold mb-4">Edit Member</h3>
+            <form onSubmit={handleEditMember}>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={(e) => setFormData({...formData, username: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password (leave blank to keep current)</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({...formData, role: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="member">Member</option>
+                    <option value="coach">Coach</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={formData.phone_number}
+                    onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={formData.date_of_birth}
+                    onChange={(e) => setFormData({...formData, date_of_birth: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Profile Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <img src={imagePreview} alt="Preview" className="max-w-sm h-auto rounded-md" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Update
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Delete Member</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <strong>{selectedMember?.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteMember}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

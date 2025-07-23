@@ -16,8 +16,8 @@ module.exports = {
         address: 'Jl. Admin No. 1',
         role: 'admin',
         user_image: 'admin.jpg',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       },
       {
         username: 'coachuser',
@@ -28,8 +28,8 @@ module.exports = {
         address: 'Jl. Coach No. 2',
         role: 'coach',
         user_image: 'coach.jpg',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       },
       {
         username: 'memberuser',
@@ -40,8 +40,8 @@ module.exports = {
         address: 'Jl. Member No. 3',
         role: 'member',
         user_image: 'member.jpg',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       }
     ], {});
   },
