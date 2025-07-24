@@ -62,7 +62,7 @@ function AdminDashboard() {
   const [imagePreview, setImagePreview] = useState(null);
   const [packageImagePreview, setPackageImagePreview] = useState(null);
   const itemsPerPage = 10;
-  const { logout, token } = useAuth();
+  const { logout, token, user } = useAuth();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
 
@@ -589,7 +589,7 @@ function AdminDashboard() {
       {/* Sidebar */}
       <aside className="w-64 bg-gradient-to-b from-blue-800 to-blue-900 text-white flex flex-col py-8 px-4 justify-between">
         <div>
-          <div className="flex flex-col items-center mb-10">
+          <div className="flex flex-col items-center mb-8">
             <img
               src="/public/images/montana-logo.jpg"
               className="h-16 w-16 rounded-full object-cover border-2 border-yellow-400 mb-2"
@@ -599,6 +599,26 @@ function AdminDashboard() {
             />
             <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness</div>
             <div className="text-sm text-blue-200">Admin Panel</div>
+          </div>
+          {/* Admin Profile */}
+          <div className="flex items-center gap-3 mb-8 px-2">
+            {user?.user_image ? (
+              <img
+                src={`http://localhost:3000${user.user_image}`}
+                alt={user.name}
+                className="h-12 w-12 rounded-full object-cover border-2 border-blue-400"
+                width={48}
+                height={48}
+              />
+            ) : (
+              <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold border-2 border-blue-400">
+                {user?.name?.charAt(0) || 'A'}
+              </div>
+            )}
+            <div>
+              <div className="text-lg font-semibold">{user?.name || 'Admin User'}</div>
+              <div className="text-xs text-blue-200">@{user?.username || 'admin'}</div>
+            </div>
           </div>
           <nav className="flex flex-col gap-1">
             {menuItems.map((item) => (

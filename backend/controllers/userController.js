@@ -68,7 +68,16 @@ module.exports = {
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) return res.status(400).json({ message: 'Invalid credentials' });
       const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
-      res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+      res.json({ 
+        token, 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role,
+          name: user.name,
+          user_image: user.user_image
+        } 
+      });
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
