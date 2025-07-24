@@ -19,9 +19,11 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('id-ID', { 
     year: 'numeric', 
     month: 'long', 
-    day: 'numeric',
+    day: 'numeric'
+  }) + ' - ' + date.toLocaleTimeString('id-ID', {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: false
   });
 };
 
@@ -35,10 +37,29 @@ function MemberDashboard() {
   const [editProfile, setEditProfile] = useState({});
   const [imagePreview, setImagePreview] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [coaches, setCoaches] = useState([]);
+  const [editTransactionData, setEditTransactionData] = useState({
+    coach_id: '',
+    transfer_receipt_image: null
+  });
+  const [receiptPreview, setReceiptPreview] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewTransactionData, setViewTransactionData] = useState(null);
   
-  const { logout, token, user } = useAuth();
+  const { logout, token, user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
+
+  // Fetch complete user profile
+  const fetchUserProfile = async () => {
+    try {
+      await refreshUser();
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+    }
+  };
 
   // Fetch packages
   const fetchPackages = async () => {
@@ -80,6 +101,23 @@ function MemberDashboard() {
     }
   };
 
+  // Fetch coaches
+  const fetchCoaches = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/transactions/coaches', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch coaches');
+      const data = await response.json();
+      setCoaches(data);
+    } catch (error) {
+      showError('Failed to fetch coaches: ' + error.message);
+    }
+  };
+
   // Initialize profile data
   useEffect(() => {
     if (user) {
@@ -95,12 +133,20 @@ function MemberDashboard() {
     }
   }, [user]);
 
+  // Fetch complete user profile on mount
+  useEffect(() => {
+    if (token) {
+      fetchUserProfile();
+    }
+  }, [token]);
+
   // Fetch data based on selected menu
   useEffect(() => {
     if (selectedMenu === 'package') {
       fetchPackages();
     } else if (selectedMenu === 'transaction') {
       fetchTransactions();
+      fetchCoaches();
     }
   }, [selectedMenu]);
 
@@ -111,6 +157,115 @@ function MemberDashboard() {
   const handlePackageClick = (packageItem) => {
     setSelectedPackage(packageItem);
     setShowPackageModal(true);
+  };
+
+  const handleEditTransaction = (transaction) => {
+    setSelectedTransaction(transaction);
+    setEditTransactionData({
+      coach_id: transaction.coach_id || '',
+      transfer_receipt_image: null
+    });
+    setReceiptPreview(transaction.transfer_receipt_image ? `http://localhost:3000${transaction.transfer_receipt_image}` : null);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteTransaction = async (transactionId) => {
+    if (!window.confirm('Are you sure you want to delete this transaction?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/transactions/member/${transactionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete transaction');
+      }
+
+      showSuccess('Transaction deleted successfully!');
+      fetchTransactions();
+    } catch (error) {
+      showError('Failed to delete transaction: ' + error.message);
+    }
+  };
+
+  const handleEditTransactionChange = (e) => {
+    const { name, value } = e.target;
+    setEditTransactionData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleReceiptChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setEditTransactionData(prev => ({ ...prev, transfer_receipt_image: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEditTransactionSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const formData = new FormData();
+      formData.append('coach_id', editTransactionData.coach_id);
+      
+      if (editTransactionData.transfer_receipt_image) {
+        formData.append('transfer_receipt_image', editTransactionData.transfer_receipt_image);
+      }
+
+      const response = await fetch(`http://localhost:3000/api/transactions/member/${selectedTransaction.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update transaction');
+      }
+
+      showSuccess('Transaction updated successfully!');
+      setShowEditModal(false);
+      setSelectedTransaction(null);
+      setEditTransactionData({ coach_id: '', transfer_receipt_image: null });
+      setReceiptPreview(null);
+      fetchTransactions();
+    } catch (error) {
+      showError('Failed to update transaction: ' + error.message);
+    }
+  };
+
+  const handleViewTransaction = async (transaction) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/transactions/${transaction.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch transaction details');
+      }
+
+      const data = await response.json();
+      setViewTransactionData(data);
+      setShowViewModal(true);
+    } catch (error) {
+      showError('Failed to fetch transaction details: ' + error.message);
+    }
   };
 
   const handleConfirmPackage = async () => {
@@ -191,6 +346,9 @@ function MemberDashboard() {
 
       showSuccess('Profile updated successfully!');
       setProfileImage(null);
+      
+      // Refresh user data to get updated information
+      await refreshUser();
     } catch (error) {
       showError('Failed to update profile: ' + error.message);
     }
@@ -205,7 +363,8 @@ function MemberDashboard() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'text-green-600';
-      case 'processed': return 'text-yellow-600';
+      case 'processed': return 'text-blue-600';
+      case 'waiting_for_payment': return 'text-yellow-600';
       case 'expired': return 'text-red-600';
       case 'canceled': return 'text-gray-600';
       default: return 'text-gray-600';
@@ -346,6 +505,7 @@ function MemberDashboard() {
                         <th className="px-6 py-3 border-b text-left text-sm font-semibold text-gray-700">Start Date</th>
                         <th className="px-6 py-3 border-b text-left text-sm font-semibold text-gray-700">End Date</th>
                         <th className="px-6 py-3 border-b text-left text-sm font-semibold text-gray-700">Status</th>
+                        <th className="px-6 py-3 border-b text-left text-sm font-semibold text-gray-700">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -362,11 +522,48 @@ function MemberDashboard() {
                                 {transaction.transaction_status}
                               </span>
                             </td>
+                            <td className="px-6 py-4 border-b">
+                              {transaction.transaction_status === 'waiting_for_payment' ? (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleEditTransaction(transaction)}
+                                    className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                                    title="Edit Transaction"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteTransaction(transaction.id)}
+                                    className="p-1 rounded-md transition-colors text-red-600 hover:text-red-900 hover:bg-red-50"
+                                    title="Delete Transaction"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleViewTransaction(transaction)}
+                                    className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                                    title="View Transaction"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.639 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.639 0-8.573-3.007-9.963-7.178z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              )}
+                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                          <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                             No transactions found
                           </td>
                         </tr>
@@ -553,6 +750,140 @@ function MemberDashboard() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {showEditModal && selectedTransaction && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowEditModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">Edit Transaction</h3>
+            <form onSubmit={handleEditTransactionSubmit} className="space-y-4">
+              {selectedTransaction.package.is_coaching_flag && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Coach</label>
+                  <select
+                    name="coach_id"
+                    value={editTransactionData.coach_id}
+                    onChange={handleEditTransactionChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Coach</option>
+                    {coaches.map(coach => (
+                      <option key={coach.id} value={coach.id}>{coach.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Receipt</label>
+                <input
+                  type="file"
+                  onChange={handleReceiptChange}
+                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {receiptPreview && (
+                  <div className="mt-2">
+                    <img src={receiptPreview} alt="Transfer Receipt" className="max-w-full h-auto rounded-md" />
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Transaction Modal */}
+      {showViewModal && viewTransactionData && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowViewModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">Transaction Details</h3>
+            
+            {/* Transaction No - Full Width */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 font-bold">Transaction No</p>
+              <p className="text-gray-900 font-mono text-sm">{viewTransactionData.transaction_no}</p>
+            </div>
+            
+            {/* Other Fields - 2x2 Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Package</p>
+                <p className="text-gray-900">{viewTransactionData.package?.package_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Amount</p>
+                <p className="text-gray-900">{formatCurrency(viewTransactionData.package?.price)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Start Date</p>
+                <p className="text-gray-900">{formatDate(viewTransactionData.start_date)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">End Date</p>
+                <p className="text-gray-900">{formatDate(viewTransactionData.end_date)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Status</p>
+                <p className={`font-semibold ${getStatusColor(viewTransactionData.transaction_status)}`}>
+                  {viewTransactionData.transaction_status}
+                </p>
+              </div>
+              {viewTransactionData.package?.is_coaching_flag && viewTransactionData.coach && (
+                <div>
+                  <p className="text-sm text-gray-700 font-bold">Assigned Coach</p>
+                  <p className="text-gray-900">{viewTransactionData.coach?.name}</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Transfer Receipt Image - Full Width */}
+            {viewTransactionData.transfer_receipt_image && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 font-bold mb-2">Transfer Receipt</p>
+                <img 
+                  src={`http://localhost:3000${viewTransactionData.transfer_receipt_image}`} 
+                  alt="Transfer Receipt" 
+                  className="max-w-full h-auto rounded-md border border-gray-200 max-h-64 object-contain" 
+                />
+              </div>
+            )}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Close
               </button>
             </div>
           </div>

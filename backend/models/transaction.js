@@ -91,9 +91,9 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     transaction_status: {
-      type: DataTypes.ENUM('active', 'processed', 'expired', 'canceled'),
+      type: DataTypes.ENUM('active', 'processed', 'expired', 'canceled', 'waiting_for_payment'),
       allowNull: false,
-      defaultValue: 'processed'
+      defaultValue: 'waiting_for_payment'
     },
     payment_date: {
       type: DataTypes.DATE,

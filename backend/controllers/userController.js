@@ -51,7 +51,13 @@ module.exports = {
           username: user.username, 
           role: user.role,
           name: user.name,
-          user_image: user.user_image
+          phone_number: user.phone_number,
+          date_of_birth: user.date_of_birth,
+          gender: user.gender,
+          address: user.address,
+          user_image: user.user_image,
+          created_at: user.created_at,
+          updated_at: user.updated_at
         } 
       });
     } catch (err) {
@@ -75,9 +81,26 @@ module.exports = {
           username: user.username, 
           role: user.role,
           name: user.name,
-          user_image: user.user_image
+          phone_number: user.phone_number,
+          date_of_birth: user.date_of_birth,
+          gender: user.gender,
+          address: user.address,
+          user_image: user.user_image,
+          created_at: user.created_at,
+          updated_at: user.updated_at
         } 
       });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  },
+
+  // Get current user profile
+  async getCurrentUser(req, res) {
+    try {
+      const user = await User.findByPk(req.user.id, { attributes: { exclude: ['password'] } });
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      res.json(user);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }

@@ -2,12 +2,13 @@ const { Transaction, User, Package } = require('../models');
 const bcrypt = require('bcrypt');
 
 // Generate transaction number
-const generateTransactionNo = (packageName, memberName) => {
-  const today = new Date();
-  const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
-  const packagePrefix = packageName.split(' ')[0].toUpperCase();
-  const memberPrefix = memberName.split(' ')[0].toUpperCase();
-  return `${packagePrefix}/${dateStr}/${memberPrefix}`;
+const generateTransactionNo = (packageName, username) => {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+  const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '');
+  const formattedPackageName = packageName.replace(/\s+/g, '').toUpperCase();
+  const formattedUsername = username.replace(/\s+/g, '').toUpperCase();
+  return `${formattedPackageName}/${dateStr}${timeStr}/${formattedUsername}`;
 };
 
 // Get all transactions (admin only)
@@ -97,7 +98,7 @@ const createTransaction = async (req, res) => {
       return res.status(404).json({ message: 'Package or member not found' });
     }
 
-    const transaction_no = generateTransactionNo(package.package_name, member.name);
+    const transaction_no = generateTransactionNo(package.package_name, member.username);
 
     const transaction = await Transaction.create({
       member_id,
@@ -236,7 +237,7 @@ const getMyTransactions = async (req, res) => {
         {
           model: Package,
           as: 'package',
-          attributes: ['id', 'package_name', 'price', 'duration', 'package_image']
+          attributes: ['id', 'package_name', 'price', 'duration', 'package_image', 'is_coaching_flag']
         }
       ],
       order: [['created_at', 'DESC']]
@@ -277,7 +278,7 @@ const createMemberTransaction = async (req, res) => {
     const end_date = new Date();
     end_date.setDate(end_date.getDate() + package.duration);
 
-    const transaction_no = generateTransactionNo(package.package_name, member.name);
+    const transaction_no = generateTransactionNo(package.package_name, member.username);
 
     const transaction = await Transaction.create({
       member_id,
@@ -286,7 +287,7 @@ const createMemberTransaction = async (req, res) => {
       transaction_no,
       start_date,
       end_date,
-      transaction_status: 'processed',
+      transaction_status: 'waiting_for_payment',
       transfer_receipt_image: req.file ? `/uploads/transactions/${req.file.filename}` : null
     });
 
@@ -300,7 +301,7 @@ const createMemberTransaction = async (req, res) => {
         {
           model: Package,
           as: 'package',
-          attributes: ['id', 'package_name', 'price', 'duration', 'package_image']
+          attributes: ['id', 'package_name', 'price', 'duration', 'package_image', 'is_coaching_flag']
         }
       ]
     });
@@ -312,6 +313,129 @@ const createMemberTransaction = async (req, res) => {
   }
 };
 
+// Update member's own transaction
+const updateMemberTransaction = async (req, res) => {
+  try {
+    const member_id = req.user.id;
+    const { id } = req.params;
+    const { coach_id } = req.body;
+
+    // Find the transaction and ensure it belongs to the member
+    const transaction = await Transaction.findOne({
+      where: { 
+        id,
+        member_id 
+      },
+      include: [
+        {
+          model: Package,
+          as: 'package',
+          attributes: ['id', 'package_name', 'price', 'duration', 'package_image', 'is_coaching_flag']
+        }
+      ]
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Check if transaction is in waiting for payment status
+    if (transaction.transaction_status !== 'waiting_for_payment') {
+      return res.status(400).json({ message: 'Transaction cannot be updated in current status' });
+    }
+
+    // Validate coach selection if package requires coaching
+    if (transaction.package.is_coaching_flag && !coach_id) {
+      return res.status(400).json({ message: 'Coach selection is required for this package' });
+    }
+
+    // Update transaction
+    const updateData = {
+      coach_id: coach_id || null,
+      payment_date: new Date(), // Set payment date when receipt is uploaded
+      transaction_status: 'processed' // Change status to processed
+    };
+
+    // Add transfer receipt image if provided
+    if (req.file) {
+      updateData.transfer_receipt_image = `/uploads/transactions/${req.file.filename}`;
+    }
+
+    await transaction.update(updateData);
+
+    const updatedTransaction = await Transaction.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'coach',
+          attributes: ['id', 'name', 'username', 'user_image']
+        },
+        {
+          model: Package,
+          as: 'package',
+          attributes: ['id', 'package_name', 'price', 'duration', 'package_image', 'is_coaching_flag']
+        }
+      ]
+    });
+
+    res.json(updatedTransaction);
+  } catch (error) {
+    console.error('Error updating member transaction:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Delete member's own transaction
+const deleteMemberTransaction = async (req, res) => {
+  try {
+    const member_id = req.user.id;
+    const { id } = req.params;
+
+    // Find the transaction and ensure it belongs to the member
+    const transaction = await Transaction.findOne({
+      where: { 
+        id,
+        member_id 
+      }
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Only allow deletion if transaction is in waiting for payment status
+    if (transaction.transaction_status !== 'waiting_for_payment') {
+      return res.status(400).json({ message: 'Transaction cannot be deleted in current status' });
+    }
+
+    await transaction.destroy();
+
+    res.json({ message: 'Transaction deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting member transaction:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get all coaches for member selection
+const getCoaches = async (req, res) => {
+  try {
+    const coaches = await User.findAll({
+      where: { 
+        role: 'coach',
+        user_status: 'active'
+      },
+      attributes: ['id', 'name', 'username', 'user_image'],
+      order: [['name', 'ASC']]
+    });
+
+    res.json(coaches);
+  } catch (error) {
+    console.error('Error fetching coaches:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 module.exports = {
   getAllTransactions,
   getTransactionById,
@@ -319,5 +443,8 @@ module.exports = {
   updateTransaction,
   deleteTransaction,
   getMyTransactions,
-  createMemberTransaction
+  createMemberTransaction,
+  getCoaches,
+  updateMemberTransaction,
+  deleteMemberTransaction
 }; 

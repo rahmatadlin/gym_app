@@ -45,11 +45,15 @@ const upload = multer({
 router.post('/register', upload.single('user_image'), validate.register, userController.register);
 router.post('/login', userController.login);
 
+// Get current user profile
+router.get('/profile/me', authenticateToken, userController.getCurrentUser);
+
 // User management (admin only)
 router.get('/', authenticateToken, isAdmin, userController.getAllUsers);
 router.get('/:id', authenticateToken, isAdmin, userController.getUserById);
 router.post('/', authenticateToken, isAdmin, upload.single('user_image'), userController.createUser);
-router.put('/:id', authenticateToken, isAdmin, upload.single('user_image'), userController.updateUser);
+// Member can update their own profile
+router.put('/:id', authenticateToken, upload.single('user_image'), userController.updateUser);
 router.delete('/:id', authenticateToken, isAdmin, userController.deleteUser);
 
 module.exports = router; 

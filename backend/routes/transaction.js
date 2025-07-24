@@ -41,13 +41,16 @@ const upload = multer({
 
 // Transaction routes
 router.get('/', authenticateToken, transactionController.getAllTransactions);
+router.get('/coaches', authenticateToken, transactionController.getCoaches);
 router.get('/:id', authenticateToken, transactionController.getTransactionById);
 router.post('/', authenticateToken, upload.single('transfer_receipt_image'), transactionController.createTransaction);
 router.put('/:id', authenticateToken, upload.single('transfer_receipt_image'), transactionController.updateTransaction);
 router.delete('/:id', authenticateToken, transactionController.deleteTransaction);
 
-// Member-specific routes
+// Member transaction routes
 router.get('/member/me', authenticateToken, transactionController.getMyTransactions);
 router.post('/member/create', authenticateToken, upload.single('transfer_receipt_image'), transactionController.createMemberTransaction);
+router.put('/member/:id', authenticateToken, upload.single('transfer_receipt_image'), transactionController.updateMemberTransaction);
+router.delete('/member/:id', authenticateToken, transactionController.deleteMemberTransaction);
 
 module.exports = router; 
