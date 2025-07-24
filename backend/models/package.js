@@ -11,6 +11,10 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
+      Package.hasMany(models.Transaction, {
+        foreignKey: 'package_id',
+        as: 'transactions'
+      });
     }
 
     // Soft delete method

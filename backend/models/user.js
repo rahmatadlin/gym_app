@@ -11,6 +11,15 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
+      User.hasMany(models.Transaction, {
+        foreignKey: 'member_id',
+        as: 'memberTransactions'
+      });
+      
+      User.hasMany(models.Transaction, {
+        foreignKey: 'coach_id',
+        as: 'coachTransactions'
+      });
     }
 
     // Soft delete method
