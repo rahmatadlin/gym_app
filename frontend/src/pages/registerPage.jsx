@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../components/AuthContext.jsx';
 import { useToast } from '../components/ToastContainer.jsx';
 
 function RegisterPage() {
@@ -11,6 +12,7 @@ function RegisterPage() {
     role: 'member'
   });
   const navigate = useNavigate();
+  const { login } = useAuth();
   const { showSuccess, showError } = useToast();
 
   const handleChange = (e) => {
@@ -48,8 +50,19 @@ function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Registration failed');
-      showSuccess('Registration successful! Redirecting to login...');
-      setTimeout(() => navigate('/login'), 2000);
+      
+      // Automatically login the user after successful registration
+      login(data.user, data.token);
+      showSuccess('Registration successful! Welcome to Montana Fitness!');
+      
+      // Redirect based on role
+      if (data.user.role === 'admin') {
+        navigate('/admin');
+      } else if (data.user.role === 'coach') {
+        navigate('/coach');
+      } else {
+        navigate('/member');
+      }
     } catch (err) {
       showError(err.message);
     }

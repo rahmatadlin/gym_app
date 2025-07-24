@@ -6,40 +6,48 @@ const { authenticateToken } = require('../middleware/auth');
 const isAdmin = require('../middleware/role');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
-// Configure multer for file uploads
+// Configure multer for user image uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../uploads'));
+    const uploadDir = 'uploads/users';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, 'user-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
   fileFilter: function (req, file, cb) {
-    // Accept only image files
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed!'), false);
+      cb(new Error('Only image files are allowed!'));
     }
   }
 });
 
 // Auth
 router.post('/register', upload.single('user_image'), validate.register, userController.register);
-router.post('/login', validate.login, userController.login);
+router.post('/login', userController.login);
 
-// CRUD (protected)
-router.get('/', authenticateToken, userController.getAllUsers);
-router.get('/:id', authenticateToken, userController.getUserById);
+// User management (admin only)
+router.get('/', authenticateToken, isAdmin, userController.getAllUsers);
+router.get('/:id', authenticateToken, isAdmin, userController.getUserById);
 router.post('/', authenticateToken, isAdmin, upload.single('user_image'), userController.createUser);
 router.put('/:id', authenticateToken, isAdmin, upload.single('user_image'), userController.updateUser);
 router.delete('/:id', authenticateToken, isAdmin, userController.deleteUser);

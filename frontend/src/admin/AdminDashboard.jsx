@@ -38,6 +38,8 @@ function AdminDashboard() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [roleFilter, setRoleFilter] = useState('all');
+  const [editingMemberId, setEditingMemberId] = useState(null);
+  const [editingPackageId, setEditingPackageId] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     username: '',
@@ -52,7 +54,8 @@ function AdminDashboard() {
     package_name: '',
     description: '',
     price: '',
-    role: 'active',
+    package_status: 'active',
+    duration: 30,
     is_coaching_flag: false,
     package_image: null
   });
@@ -188,10 +191,9 @@ function AdminDashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to create member');
       showSuccess('Member created successfully!');
-      setShowCreateModal(false);
-      setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: '', address: '', user_image: null });
-      setImagePreview(null);
-      fetchMembers();
+      closeCreateModal();
+      await fetchMembers();
+      setCurrentPage(1);
     } catch (error) {
       showError('Failed to create member: ' + error.message);
     }
@@ -218,7 +220,7 @@ function AdminDashboard() {
         formDataToSend.append('user_image', formData.user_image);
       }
       
-      const response = await fetch(`http://localhost:3000/api/users/${selectedMember.id}`, {
+      const response = await fetch(`http://localhost:3000/api/users/${editingMemberId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -228,11 +230,15 @@ function AdminDashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to update member');
       showSuccess('Member updated successfully!');
-      setShowEditModal(false);
-      setSelectedMember(null);
-      setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: '', address: '', user_image: null });
-      setImagePreview(null);
-      fetchMembers();
+      closeEditModal();
+      
+      // Fetch members and maintain current position
+      await fetchMembers();
+      
+      // Reset to first page to maintain consistent view
+      setCurrentPage(1);
+      
+      setEditingMemberId(null);
     } catch (error) {
       showError('Failed to update member: ' + error.message);
     }
@@ -251,23 +257,41 @@ function AdminDashboard() {
       showSuccess('Member deleted successfully!');
       setShowDeleteModal(false);
       setSelectedMember(null);
-      fetchMembers();
+      await fetchMembers();
+      setCurrentPage(1);
     } catch (error) {
       showError('Failed to delete member: ' + error.message);
     }
   };
 
   const openCreateModal = () => {
-    setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: '', address: '', user_image: null });
+    // Get today's date in YYYY-MM-DD format for the date input
+    const today = new Date().toISOString().split('T')[0];
+    
+    setFormData({ 
+      name: '', 
+      username: '', 
+      password: '', 
+      role: 'member', 
+      phone_number: '', 
+      date_of_birth: today, 
+      address: '', 
+      user_image: null 
+    });
+    setImagePreview(null);
     setShowCreateModal(true);
   };
 
   const openEditModal = (member) => {
     setSelectedMember(member);
+    setEditingMemberId(member.id);
     
     // Format date for input field (YYYY-MM-DD)
     const formatDateForInput = (dateString) => {
-      if (!dateString) return '';
+      if (!dateString) {
+        // If no date, use today's date as default
+        return new Date().toISOString().split('T')[0];
+      }
       const date = new Date(dateString);
       return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
     };
@@ -293,6 +317,45 @@ function AdminDashboard() {
     }
     
     setShowEditModal(true);
+  };
+
+  // Function to remove image
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, user_image: null }));
+    setImagePreview(null);
+  };
+
+  // Function to remove package image
+  const handleRemovePackageImage = () => {
+    setPackageFormData(prev => ({ ...prev, package_image: null }));
+    setPackageImagePreview(null);
+  };
+
+  // Function to clear create modal state
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    if (selectedMenu === 'member') {
+      const today = new Date().toISOString().split('T')[0];
+      setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: today, address: '', user_image: null });
+      setImagePreview(null);
+    } else if (selectedMenu === 'package') {
+      setPackageFormData({ package_name: '', description: '', price: '', package_status: 'active', duration: 30, is_coaching_flag: false, package_image: null });
+      setPackageImagePreview(null);
+    }
+  };
+
+  // Function to clear edit modal state
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedMember(null);
+    setSelectedPackage(null);
+    setEditingMemberId(null);
+    setEditingPackageId(null);
+    const today = new Date().toISOString().split('T')[0];
+    setFormData({ name: '', username: '', password: '', role: 'member', phone_number: '', date_of_birth: today, address: '', user_image: null });
+    setPackageFormData({ package_name: '', description: '', price: '', package_status: 'active', duration: 30, is_coaching_flag: false, package_image: null });
+    setImagePreview(null);
+    setPackageImagePreview(null);
   };
 
   const openDeleteModal = (member) => {
@@ -342,7 +405,8 @@ function AdminDashboard() {
       formDataToSend.append('package_name', packageFormData.package_name);
       formDataToSend.append('description', packageFormData.description);
       formDataToSend.append('price', packageFormData.price);
-      formDataToSend.append('role', packageFormData.role);
+      formDataToSend.append('package_status', packageFormData.package_status);
+      formDataToSend.append('duration', packageFormData.duration);
       formDataToSend.append('is_coaching_flag', packageFormData.is_coaching_flag);
       if (packageFormData.package_image) {
         formDataToSend.append('package_image', packageFormData.package_image);
@@ -358,10 +422,9 @@ function AdminDashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to create package');
       showSuccess('Package created successfully!');
-      setShowCreateModal(false);
-      setPackageFormData({ package_name: '', description: '', price: '', role: 'active', is_coaching_flag: false, package_image: null });
-      setPackageImagePreview(null);
-      fetchPackages();
+      closeCreateModal();
+      await fetchPackages();
+      setCurrentPage(1);
     } catch (error) {
       showError('Failed to create package: ' + error.message);
     }
@@ -374,7 +437,8 @@ function AdminDashboard() {
       formDataToSend.append('package_name', packageFormData.package_name);
       formDataToSend.append('description', packageFormData.description);
       formDataToSend.append('price', packageFormData.price);
-      formDataToSend.append('role', packageFormData.role);
+      formDataToSend.append('package_status', packageFormData.package_status);
+      formDataToSend.append('duration', packageFormData.duration);
       formDataToSend.append('is_coaching_flag', packageFormData.is_coaching_flag);
       
       // Only add image if a new one is selected
@@ -382,7 +446,7 @@ function AdminDashboard() {
         formDataToSend.append('package_image', packageFormData.package_image);
       }
       
-      const response = await fetch(`http://localhost:3000/api/packages/${selectedPackage.id}`, {
+      const response = await fetch(`http://localhost:3000/api/packages/${editingPackageId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -392,11 +456,15 @@ function AdminDashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Failed to update package');
       showSuccess('Package updated successfully!');
-      setShowEditModal(false);
-      setSelectedPackage(null);
-      setPackageFormData({ package_name: '', description: '', price: '', role: 'active', is_coaching_flag: false, package_image: null });
-      setPackageImagePreview(null);
-      fetchPackages();
+      closeEditModal();
+      
+      // Fetch packages and maintain current position
+      await fetchPackages();
+      
+      // Reset to first page to maintain consistent view
+      setCurrentPage(1);
+      
+      setEditingPackageId(null);
     } catch (error) {
       showError('Failed to update package: ' + error.message);
     }
@@ -415,32 +483,38 @@ function AdminDashboard() {
       showSuccess('Package deleted successfully!');
       setShowDeleteModal(false);
       setSelectedPackage(null);
-      fetchPackages();
+      await fetchPackages();
+      setCurrentPage(1);
     } catch (error) {
       showError('Failed to delete package: ' + error.message);
     }
   };
 
   const openCreatePackageModal = () => {
-    setPackageFormData({ package_name: '', description: '', price: '', role: 'active', is_coaching_flag: false, package_image: null });
+    setPackageFormData({ package_name: '', description: '', price: '', package_status: 'active', duration: 30, is_coaching_flag: false, package_image: null });
     setPackageImagePreview(null);
     setShowCreateModal(true);
   };
 
   const openEditPackageModal = (packageItem) => {
     setSelectedPackage(packageItem);
+    setEditingPackageId(packageItem.id);
     
     setPackageFormData({
       package_name: packageItem.package_name || '',
       description: packageItem.description || '',
       price: packageItem.price || '',
-      role: packageItem.role || 'active',
+      package_status: packageItem.package_status || 'active',
+      duration: packageItem.duration || 30,
       is_coaching_flag: packageItem.is_coaching_flag || false,
       package_image: null
     });
     
     // Set image preview if package has an image
     if (packageItem.package_image) {
+      // Convert URL path to full URL
+      // package_image is now stored as "/uploads/packages/filename.jpg"
+      // so we need to construct URL as "http://localhost:3000/uploads/packages/filename.jpg"
       const imageUrl = `http://localhost:3000${packageItem.package_image}`;
       setPackageImagePreview(imageUrl);
     } else {
@@ -666,6 +740,18 @@ function AdminDashboard() {
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('package_status')}
+                    >
+                      Status {getSortIndicator('package_status')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('duration')}
+                    >
+                      Duration {getSortIndicator('duration')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort('created_at')}
                     >
                       Created At {getSortIndicator('created_at')}
@@ -730,7 +816,7 @@ function AdminDashboard() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={selectedMenu === 'package' ? 7 : 8} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={selectedMenu === 'package' ? 9 : 8} className="px-6 py-4 text-center text-sm text-gray-500">
                       Loading...
                     </td>
                   </tr>
@@ -740,7 +826,7 @@ function AdminDashboard() {
                       {selectedMenu === 'package' ? (
                         <>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {item.id}
+                            {(currentPage - 1) * itemsPerPage + index + 1}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <span className="font-medium">{item.package_name}</span>
@@ -749,7 +835,27 @@ function AdminDashboard() {
                             {formatCurrency(item.price)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {item.is_coaching_flag ? 'Yes' : 'No'}
+                            {item.is_coaching_flag ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              item.package_status === 'active' 
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {item.package_status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.duration} days
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDate(item.created_at)}
@@ -859,7 +965,7 @@ function AdminDashboard() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={selectedMenu === 'package' ? 5 : 8} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={selectedMenu === 'package' ? 9 : 8} className="px-6 py-4 text-center text-sm text-gray-500">
                       No data found
                     </td>
                   </tr>
@@ -908,8 +1014,14 @@ function AdminDashboard() {
 
       {/* Create Member Modal */}
       {showCreateModal && selectedMenu === 'member' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={closeCreateModal}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold mb-4">Create New Member</h3>
             <form onSubmit={handleCreateMember}>
               <div className="grid grid-cols-2 gap-4">
@@ -991,8 +1103,20 @@ function AdminDashboard() {
                     className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                   {imagePreview && (
-                    <div className="mt-2">
-                      <img src={imagePreview} alt="Preview" className="max-w-sm h-auto rounded-md" />
+                    <div className="mt-2 relative">
+                      <div className="w-32 h-32 rounded-md overflow-hidden border border-gray-300">
+                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute -top-10 -right-8 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
+                        title="Remove image"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1000,7 +1124,7 @@ function AdminDashboard() {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={closeCreateModal}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
@@ -1019,8 +1143,14 @@ function AdminDashboard() {
 
       {/* Edit Member Modal */}
       {showEditModal && selectedMenu === 'member' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={closeEditModal}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold mb-4">Edit Member</h3>
             <form onSubmit={handleEditMember}>
               <div className="grid grid-cols-2 gap-4">
@@ -1101,8 +1231,20 @@ function AdminDashboard() {
                     className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                   {imagePreview && (
-                    <div className="mt-2">
-                      <img src={imagePreview} alt="Preview" className="max-w-sm h-auto rounded-md" />
+                    <div className="mt-2 relative">
+                      <div className="w-32 h-32 rounded-md overflow-hidden border border-gray-300">
+                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute -top-10 -right-8 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
+                        title="Remove image"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1110,7 +1252,7 @@ function AdminDashboard() {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
+                  onClick={closeEditModal}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
@@ -1129,8 +1271,14 @@ function AdminDashboard() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold mb-4">
               {selectedMenu === 'package' ? 'Delete Package' : 'Delete Member'}
             </h3>
@@ -1159,8 +1307,14 @@ function AdminDashboard() {
 
       {/* Create Package Modal */}
       {showCreateModal && selectedMenu === 'package' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={closeCreateModal}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold mb-4">Create Package</h3>
             <form onSubmit={handleCreatePackage}>
               <div className="grid grid-cols-2 gap-4">
@@ -1189,13 +1343,24 @@ function AdminDashboard() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
-                    value={packageFormData.role}
-                    onChange={(e) => setPackageFormData({...packageFormData, role: e.target.value})}
+                    value={packageFormData.package_status}
+                    onChange={(e) => setPackageFormData({...packageFormData, package_status: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (days)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={packageFormData.duration}
+                    onChange={(e) => setPackageFormData({...packageFormData, duration: parseInt(e.target.value, 10)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Coaching Flag</label>
@@ -1226,8 +1391,20 @@ function AdminDashboard() {
                     className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                   {packageImagePreview && (
-                    <div className="mt-2">
-                      <img src={packageImagePreview} alt="Preview" className="max-w-sm h-auto rounded-md" />
+                    <div className="mt-2 relative">
+                      <div className="w-32 h-32 rounded-md overflow-hidden border border-gray-300">
+                        <img src={packageImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemovePackageImage}
+                        className="absolute -top-10 -right-8 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
+                        title="Remove image"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1235,7 +1412,7 @@ function AdminDashboard() {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={closeCreateModal}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
@@ -1254,8 +1431,14 @@ function AdminDashboard() {
 
       {/* Edit Package Modal */}
       {showEditModal && selectedMenu === 'package' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={closeEditModal}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold mb-4">Edit Package</h3>
             <form onSubmit={handleEditPackage}>
               <div className="grid grid-cols-2 gap-4">
@@ -1284,13 +1467,24 @@ function AdminDashboard() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
-                    value={packageFormData.role}
-                    onChange={(e) => setPackageFormData({...packageFormData, role: e.target.value})}
+                    value={packageFormData.package_status}
+                    onChange={(e) => setPackageFormData({...packageFormData, package_status: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (days)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={packageFormData.duration}
+                    onChange={(e) => setPackageFormData({...packageFormData, duration: parseInt(e.target.value, 10)})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Coaching Flag</label>
@@ -1321,8 +1515,20 @@ function AdminDashboard() {
                     className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                   {packageImagePreview && (
-                    <div className="mt-2">
-                      <img src={packageImagePreview} alt="Preview" className="max-w-sm h-auto rounded-md" />
+                    <div className="mt-2 relative">
+                      <div className="w-32 h-32 rounded-md overflow-hidden border border-gray-300">
+                        <img src={packageImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemovePackageImage}
+                        className="absolute -top-10 -right-8 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors"
+                        title="Remove image"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1330,7 +1536,7 @@ function AdminDashboard() {
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
+                  onClick={closeEditModal}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel

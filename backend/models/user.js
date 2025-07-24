@@ -12,15 +12,38 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // define association here
     }
+
+    // Soft delete method
+    static async softDelete(id) {
+      return await this.update(
+        { user_status: 'inactive' },
+        { where: { id } }
+      );
+    }
+
+    // Restore method
+    static async restore(id) {
+      return await this.update(
+        { user_status: 'active' },
+        { where: { id } }
+      );
+    }
   }
+
   User.init({
     username: {
       type: DataTypes.STRING,
       unique: true,
       allowNull: false
     },
-    password: DataTypes.STRING,
-    name: DataTypes.STRING,
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
     date_of_birth: DataTypes.DATE,
     phone_number: DataTypes.STRING,
     gender: DataTypes.STRING,
@@ -30,15 +53,28 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'member'
     },
+    user_status: {
+      type: DataTypes.ENUM('active', 'inactive'),
+      allowNull: false,
+      defaultValue: 'active'
+    },
     user_image: DataTypes.STRING
   }, {
     sequelize,
     modelName: 'User',
-    paranoid: true,
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: 'updated_at',
-    deletedAt: 'deleted_at'
+    updatedAt: 'updated_at'
   });
+
+  // Add scopes after model initialization
+  User.addScope('active', {
+    where: { user_status: 'active' }
+  });
+
+  User.addScope('inactive', {
+    where: { user_status: 'inactive' }
+  });
+
   return User;
 };

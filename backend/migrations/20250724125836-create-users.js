@@ -2,38 +2,55 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Packages', {
+    await queryInterface.createTable('Users', {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.INTEGER
       },
-      package_name: {
+      username: {
+        type: Sequelize.STRING,
+        unique: true,
+        allowNull: false
+      },
+      password: {
         type: Sequelize.STRING,
         allowNull: false
       },
-      package_image: {
+      name: {
+        type: Sequelize.STRING,
+        allowNull: false
+      },
+      date_of_birth: {
+        type: Sequelize.DATE,
+        allowNull: true
+      },
+      phone_number: {
         type: Sequelize.STRING,
         allowNull: true
       },
-      description: {
+      gender: {
+        type: Sequelize.STRING,
+        allowNull: true
+      },
+      address: {
         type: Sequelize.TEXT,
         allowNull: true
       },
-      price: {
-        type: Sequelize.DECIMAL(10, 2),
-        allowNull: false
-      },
       role: {
+        type: Sequelize.ENUM('admin', 'coach', 'member'),
+        allowNull: false,
+        defaultValue: 'member'
+      },
+      user_status: {
         type: Sequelize.ENUM('active', 'inactive'),
         allowNull: false,
         defaultValue: 'active'
       },
-      is_coaching_flag: {
-        type: Sequelize.BOOLEAN,
-        allowNull: false,
-        defaultValue: false
+      user_image: {
+        type: Sequelize.STRING,
+        allowNull: true
       },
       created_at: {
         allowNull: false,
@@ -42,14 +59,10 @@ module.exports = {
       updated_at: {
         allowNull: false,
         type: Sequelize.DATE
-      },
-      deleted_at: {
-        type: Sequelize.DATE,
-        allowNull: true
       }
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Packages');
+    await queryInterface.dropTable('Users');
   }
 };

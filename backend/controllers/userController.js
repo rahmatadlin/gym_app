@@ -6,19 +6,13 @@ const fs = require('fs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secretkey';
 
-// Helper function to save uploaded file
-const saveUploadedFile = (file) => {
-  if (!file) return null;
-  
-  const uploadsDir = path.join(__dirname, '../uploads');
-  const fileName = `${Date.now()}-${file.originalname}`;
-  const filePath = path.join(uploadsDir, fileName);
-  
-  // Move file to uploads directory
-  fs.renameSync(file.path, filePath);
-  
-  // Return the URL path
-  return `/uploads/${fileName}`;
+// Helper function to convert file path to URL path
+const getUserImageUrl = (filePath) => {
+  if (!filePath) return null;
+  // Convert file system path to URL path
+  // From: uploads/users/filename.jpg
+  // To: /uploads/users/filename.jpg
+  return '/' + filePath.replace(/\\/g, '/');
 };
 
 module.exports = {
@@ -32,7 +26,7 @@ module.exports = {
       const hash = await bcrypt.hash(password, 10);
       
       // Handle image upload
-      const user_image = req.file ? saveUploadedFile(req.file) : null;
+      const user_image = req.file ? getUserImageUrl(req.file.path) : null;
       
       const user = await User.create({ 
         username, 
@@ -46,8 +40,12 @@ module.exports = {
         date_of_birth
       });
       
+      // Generate JWT token after successful registration
+      const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+      
       res.status(201).json({ 
-        message: 'User registered', 
+        message: 'User registered successfully', 
+        token,
         user: { 
           id: user.id, 
           username: user.username, 
@@ -81,7 +79,7 @@ module.exports = {
     try {
       const users = await User.findAll({ 
         attributes: { exclude: ['password'] },
-        order: [['created_at', 'ASC']]
+        order: [['id', 'ASC']]
       });
       res.json(users);
     } catch (err) {
@@ -115,7 +113,7 @@ module.exports = {
       const hash = await bcrypt.hash(password, 10);
       
       // Handle image upload
-      const user_image = req.file ? saveUploadedFile(req.file) : null;
+      const user_image = req.file ? getUserImageUrl(req.file.path) : null;
       
       const user = await User.create({ 
         username, 
@@ -179,12 +177,12 @@ module.exports = {
       if (req.file) {
         // Delete old image if exists
         if (user.user_image) {
-          const oldImagePath = path.join(__dirname, '..', user.user_image);
+          const oldImagePath = user.user_image.replace(/^\//, ''); // Remove leading slash
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
           }
         }
-        updateData.user_image = saveUploadedFile(req.file);
+        updateData.user_image = getUserImageUrl(req.file.path);
       }
       
       await user.update(updateData);
@@ -211,17 +209,24 @@ module.exports = {
       const user = await User.findByPk(req.params.id);
       if (!user) return res.status(404).json({ message: 'User not found' });
       
-      // Delete user image if exists
+      // Delete image file if exists
       if (user.user_image) {
-        const imagePath = path.join(__dirname, '..', user.user_image);
+        const imagePath = user.user_image.replace(/^\//, ''); // Remove leading slash
         if (fs.existsSync(imagePath)) {
           fs.unlinkSync(imagePath);
         }
       }
       
       await user.destroy();
+      
+      // Reset auto-increment after deletion
+      await User.sequelize.query(`
+        SELECT setval(pg_get_serial_sequence('"Users"', 'id'), (SELECT COALESCE(MAX(id), 0) + 1 FROM "Users"));
+      `);
+      
       res.json({ message: 'User deleted successfully' });
     } catch (err) {
+      console.error('Delete user error:', err);
       res.status(500).json({ message: err.message });
     }
   }

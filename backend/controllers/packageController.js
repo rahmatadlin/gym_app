@@ -36,11 +36,20 @@ const upload = multer({
   }
 }).single('package_image');
 
+// Helper function to convert file path to URL path
+const getPackageImageUrl = (filePath) => {
+  if (!filePath) return null;
+  // Convert file system path to URL path
+  // From: uploads/packages/filename.jpg
+  // To: /uploads/packages/filename.jpg
+  return '/' + filePath.replace(/\\/g, '/');
+};
+
 // Get all packages
 const getAllPackages = async (req, res) => {
   try {
     const packages = await Package.findAll({
-      order: [['created_at', 'DESC']]
+      order: [['id', 'ASC']]
     });
     
     res.json(packages);
@@ -50,16 +59,13 @@ const getAllPackages = async (req, res) => {
   }
 };
 
-// Get package by ID
+// Get package by id
 const getPackageById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const package = await Package.findByPk(id);
-    
+    const package = await Package.findByPk(req.params.id);
     if (!package) {
       return res.status(404).json({ error: 'Package not found' });
     }
-    
     res.json(package);
   } catch (error) {
     console.error('Error fetching package:', error);
@@ -75,7 +81,7 @@ const createPackage = async (req, res) => {
     }
 
     try {
-      const { package_name, description, price, role, is_coaching_flag } = req.body;
+      const { package_name, description, price, package_status, duration, is_coaching_flag } = req.body;
       
       // Validate required fields
       if (!package_name || !price) {
@@ -86,13 +92,14 @@ const createPackage = async (req, res) => {
         package_name,
         description,
         price: parseFloat(price),
-        role: role || 'active',
+        package_status: package_status || 'active',
+        duration: duration ? parseInt(duration) : 30,
         is_coaching_flag: is_coaching_flag === 'true' || is_coaching_flag === true
       };
 
-      // Add image path if uploaded
+      // Add image URL path if uploaded
       if (req.file) {
-        packageData.package_image = req.file.path;
+        packageData.package_image = getPackageImageUrl(req.file.path);
       }
 
       const newPackage = await Package.create(packageData);
@@ -114,7 +121,7 @@ const updatePackage = async (req, res) => {
 
     try {
       const { id } = req.params;
-      const { package_name, description, price, role, is_coaching_flag } = req.body;
+      const { package_name, description, price, package_status, duration, is_coaching_flag } = req.body;
       
       const package = await Package.findByPk(id);
       if (!package) {
@@ -125,17 +132,21 @@ const updatePackage = async (req, res) => {
         package_name,
         description,
         price: price ? parseFloat(price) : package.price,
-        role: role || package.role,
+        package_status: package_status || package.package_status,
+        duration: duration ? parseInt(duration) : package.duration,
         is_coaching_flag: is_coaching_flag !== undefined ? (is_coaching_flag === 'true' || is_coaching_flag === true) : package.is_coaching_flag
       };
 
       // Handle image update
       if (req.file) {
         // Delete old image if exists
-        if (package.package_image && fs.existsSync(package.package_image)) {
-          fs.unlinkSync(package.package_image);
+        if (package.package_image) {
+          const oldImagePath = package.package_image.replace(/^\//, ''); // Remove leading slash
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
         }
-        updateData.package_image = req.file.path;
+        updateData.package_image = getPackageImageUrl(req.file.path);
       }
 
       await package.update(updateData);
@@ -159,11 +170,19 @@ const deletePackage = async (req, res) => {
     }
 
     // Delete image file if exists
-    if (package.package_image && fs.existsSync(package.package_image)) {
-      fs.unlinkSync(package.package_image);
+    if (package.package_image) {
+      const imagePath = package.package_image.replace(/^\//, ''); // Remove leading slash
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
     }
 
     await package.destroy();
+    
+    // Reset auto-increment after deletion
+    await Package.sequelize.query(`
+      SELECT setval(pg_get_serial_sequence('"Packages"', 'id'), (SELECT COALESCE(MAX(id), 0) + 1 FROM "Packages"));
+    `);
     
     res.json({ message: 'Package deleted successfully' });
   } catch (error) {
@@ -182,11 +201,12 @@ const getPackageImage = async (req, res) => {
       return res.status(404).json({ error: 'Image not found' });
     }
 
-    if (!fs.existsSync(package.package_image)) {
+    const imagePath = package.package_image.replace(/^\//, ''); // Remove leading slash
+    if (!fs.existsSync(imagePath)) {
       return res.status(404).json({ error: 'Image file not found' });
     }
 
-    res.sendFile(path.resolve(package.package_image));
+    res.sendFile(path.resolve(imagePath));
   } catch (error) {
     console.error('Error serving package image:', error);
     res.status(500).json({ error: 'Failed to serve image' });
