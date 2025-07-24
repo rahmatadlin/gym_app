@@ -3,11 +3,12 @@ const router = express.Router();
 const packageController = require('../controllers/packageController');
 const { authenticateToken } = require('../middleware/auth');
 
-// Apply authentication middleware to all routes
-router.use(authenticateToken);
-
 // Get all packages
 router.get('/', packageController.getAllPackages);
+
+
+// Apply authentication middleware to all routes
+router.use(authenticateToken);
 
 // Get package by ID
 router.get('/:id', packageController.getPackageById);
