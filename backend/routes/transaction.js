@@ -50,7 +50,11 @@ router.delete('/:id', authenticateToken, transactionController.deleteTransaction
 // Member transaction routes
 router.get('/member/me', authenticateToken, transactionController.getMyTransactions);
 router.post('/member/create', authenticateToken, upload.single('transfer_receipt_image'), transactionController.createMemberTransaction);
+router.put('/member/:id/cancel', authenticateToken, transactionController.cancelMemberTransaction);
 router.put('/member/:id', authenticateToken, upload.single('transfer_receipt_image'), transactionController.updateMemberTransaction);
 router.delete('/member/:id', authenticateToken, transactionController.deleteMemberTransaction);
+
+// Coach transaction routes
+router.get('/coach/me', authenticateToken, transactionController.getCoachTransactions);
 
 module.exports = router; 

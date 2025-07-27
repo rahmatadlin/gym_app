@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
 
 const menuItems = [
-  { key: 'package', label: 'Package', icon: '📦' },
+  { key: 'package', label: 'Package', icon: '🏋' },
   { key: 'member', label: 'Member', icon: '👥' },
+  { key: 'transaction', label: 'Transaction', icon: '💳' },
 ];
 
 const formatCurrency = (amount) => {
@@ -31,12 +32,15 @@ function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [members, setMembers] = useState([]);
   const [packages, setPackages] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [roleFilter, setRoleFilter] = useState('all');
   const [editingMemberId, setEditingMemberId] = useState(null);
   const [editingPackageId, setEditingPackageId] = useState(null);
@@ -62,7 +66,7 @@ function AdminDashboard() {
   const [imagePreview, setImagePreview] = useState(null);
   const [packageImagePreview, setPackageImagePreview] = useState(null);
   const itemsPerPage = 10;
-  const { logout, token, user } = useAuth();
+  const { logout, token, user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
 
@@ -106,11 +110,33 @@ function AdminDashboard() {
     }
   };
 
+  // Fetch transactions from API
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/transactions', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch transactions');
+      const data = await response.json();
+      setTransactions(data);
+    } catch (error) {
+      showError('Failed to fetch transactions: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedMenu === 'member') {
       fetchMembers();
     } else if (selectedMenu === 'package') {
       fetchPackages();
+    } else if (selectedMenu === 'transaction') {
+      fetchTransactions();
     }
   }, [selectedMenu]);
 
@@ -231,6 +257,11 @@ function AdminDashboard() {
       if (!response.ok) throw new Error(data.message || 'Failed to update member');
       showSuccess('Member updated successfully!');
       closeEditModal();
+      
+      // If the edited member is the current admin user, refresh the user data
+      if (editingMemberId === user.id) {
+        await refreshUser();
+      }
       
       // Fetch members and maintain current position
       await fetchMembers();
@@ -529,8 +560,68 @@ function AdminDashboard() {
     setShowDeleteModal(true);
   };
 
+  // Transaction functions
+  const openTransactionModal = (transaction) => {
+    setSelectedTransaction(transaction);
+    setShowTransactionModal(true);
+  };
+
+  const handleReviseTransaction = async (transactionId) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/transactions/${transactionId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          transaction_status: 'canceled'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to revise transaction');
+      }
+
+      showSuccess('Transaction revised successfully!');
+      setShowTransactionModal(false);
+      setSelectedTransaction(null);
+      fetchTransactions();
+    } catch (error) {
+      showError('Failed to revise transaction: ' + error.message);
+    }
+  };
+
+  const handleApproveTransaction = async (transactionId) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/transactions/${transactionId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          transaction_status: 'active'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to approve transaction');
+      }
+
+      showSuccess('Transaction approved successfully!');
+      setShowTransactionModal(false);
+      setSelectedTransaction(null);
+      fetchTransactions();
+    } catch (error) {
+      showError('Failed to approve transaction: ' + error.message);
+    }
+  };
+
   const filteredData = useMemo(() => {
-    let data = selectedMenu === 'package' ? [...packages] : [...members];
+    let data = selectedMenu === 'package' ? [...packages] : selectedMenu === 'transaction' ? [...transactions] : [...members];
     
     // Filter by search term
     if (searchTerm) {
@@ -570,7 +661,7 @@ function AdminDashboard() {
     }
     
     return data;
-  }, [selectedMenu, searchTerm, sortConfig, members, roleFilter, packages]);
+  }, [selectedMenu, searchTerm, sortConfig, members, roleFilter, packages, transactions]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -654,7 +745,7 @@ function AdminDashboard() {
           {/* Header */}
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-2xl font-bold text-gray-800">
-              {selectedMenu === 'package' ? 'Daftar Package' : 'List Member'}
+              {selectedMenu === 'package' ? 'Daftar Package' : selectedMenu === 'transaction' ? 'Daftar Transaction' : 'List Member'}
             </h2>
             <div className="flex justify-between items-center mt-4">
               <div className="flex items-center gap-4">
@@ -786,6 +877,57 @@ function AdminDashboard() {
                       Actions
                     </th>
                   </tr>
+                ) : selectedMenu === 'transaction' ? (
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      No
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('transaction_no')}
+                    >
+                      Transaction No {getSortIndicator('transaction_no')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('member.name')}
+                    >
+                      Member {getSortIndicator('member.name')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('package.package_name')}
+                    >
+                      Package {getSortIndicator('package.package_name')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('transaction_status')}
+                    >
+                      Status {getSortIndicator('transaction_status')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('start_date')}
+                    >
+                      Start Date {getSortIndicator('start_date')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('end_date')}
+                    >
+                      End Date {getSortIndicator('end_date')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      Created At {getSortIndicator('created_at')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
                 ) : (
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -901,6 +1043,58 @@ function AdminDashboard() {
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : selectedMenu === 'transaction' ? (
+                        <>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {(currentPage - 1) * itemsPerPage + index + 1}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                              {item.transaction_no}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                              {item.member.name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                              {item.package.package_name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              item.transaction_status === 'active' 
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {item.transaction_status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(item.start_date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(item.end_date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(item.created_at)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => openTransactionModal(item)}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                                title="View Transaction Details"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                               </button>
                             </div>
@@ -1569,6 +1763,107 @@ function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Modal */}
+      {showTransactionModal && selectedTransaction && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowTransactionModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">Transaction Details</h3>
+            
+            {/* Transaction No - Full Width */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 font-bold">Transaction No</p>
+              <p className="text-gray-900 font-mono text-sm">{selectedTransaction.transaction_no}</p>
+            </div>
+            
+            {/* Other Fields - 2x2 Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Member</p>
+                <p className="text-gray-900">{selectedTransaction.member?.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Package</p>
+                <p className="text-gray-900">{selectedTransaction.package?.package_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Amount</p>
+                <p className="text-gray-900">{formatCurrency(selectedTransaction.package?.price)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Status</p>
+                <p className={`font-semibold ${
+                  selectedTransaction.transaction_status === 'active' ? 'text-green-600' :
+                  selectedTransaction.transaction_status === 'processed' ? 'text-blue-600' :
+                  selectedTransaction.transaction_status === 'waiting_for_payment' ? 'text-yellow-600' :
+                  selectedTransaction.transaction_status === 'expired' ? 'text-red-600' :
+                  selectedTransaction.transaction_status === 'canceled' ? 'text-gray-600' : 'text-gray-600'
+                }`}>
+                  {selectedTransaction.transaction_status}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Start Date</p>
+                <p className="text-gray-900">{formatDate(selectedTransaction.start_date)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">End Date</p>
+                <p className="text-gray-900">{formatDate(selectedTransaction.end_date)}</p>
+              </div>
+              {selectedTransaction.coach && (
+                <div>
+                  <p className="text-sm text-gray-700 font-bold">Assigned Coach</p>
+                  <p className="text-gray-900">{selectedTransaction.coach?.name}</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Transfer Receipt Image - Full Width */}
+            {selectedTransaction.transfer_receipt_image && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 font-bold mb-2">Transfer Receipt</p>
+                <img 
+                  src={`http://localhost:3000${selectedTransaction.transfer_receipt_image}`} 
+                  alt="Transfer Receipt" 
+                  className="max-w-full h-auto rounded-md border border-gray-200 max-h-64 object-contain" 
+                />
+              </div>
+            )}
+            
+            {/* Action Buttons */}
+            <div className="mt-6 flex justify-end space-x-3">
+              {selectedTransaction.transaction_status === 'processed' && (
+                <>
+                  <button
+                    onClick={() => handleReviseTransaction(selectedTransaction.id)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    Revise
+                  </button>
+                  <button
+                    onClick={() => handleApproveTransaction(selectedTransaction.id)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Approve
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setShowTransactionModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

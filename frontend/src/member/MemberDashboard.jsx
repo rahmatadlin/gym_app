@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
 
 const menuItems = [
-  { key: 'package', label: 'Package', icon: '📦' },
+  { key: 'package', label: 'Package', icon: '🏋' },
   { key: 'transaction', label: 'Transaction', icon: '💳' },
   { key: 'profile', label: 'Profile', icon: '👤' },
 ];
@@ -47,6 +47,8 @@ function MemberDashboard() {
   const [receiptPreview, setReceiptPreview] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewTransactionData, setViewTransactionData] = useState(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [transactionToCancel, setTransactionToCancel] = useState(null);
   
   const { logout, token, user, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -170,13 +172,9 @@ function MemberDashboard() {
   };
 
   const handleDeleteTransaction = async (transactionId) => {
-    if (!window.confirm('Are you sure you want to delete this transaction?')) {
-      return;
-    }
-
     try {
-      const response = await fetch(`http://localhost:3000/api/transactions/member/${transactionId}`, {
-        method: 'DELETE',
+      const response = await fetch(`http://localhost:3000/api/transactions/member/${transactionId}/cancel`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -185,14 +183,21 @@ function MemberDashboard() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete transaction');
+        throw new Error(errorData.message || 'Failed to cancel transaction');
       }
 
-      showSuccess('Transaction deleted successfully!');
+      showSuccess('Transaction cancelled successfully!');
+      setShowCancelModal(false);
+      setTransactionToCancel(null);
       fetchTransactions();
     } catch (error) {
-      showError('Failed to delete transaction: ' + error.message);
+      showError('Failed to cancel transaction: ' + error.message);
     }
+  };
+
+  const openCancelModal = (transaction) => {
+    setTransactionToCancel(transaction);
+    setShowCancelModal(true);
   };
 
   const handleEditTransactionChange = (e) => {
@@ -535,12 +540,12 @@ function MemberDashboard() {
                                     </svg>
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteTransaction(transaction.id)}
+                                    onClick={() => openCancelModal(transaction)}
                                     className="p-1 rounded-md transition-colors text-red-600 hover:text-red-900 hover:bg-red-50"
-                                    title="Delete Transaction"
+                                    title="Cancel Transaction"
                                   >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                   </button>
                                 </div>
@@ -786,6 +791,11 @@ function MemberDashboard() {
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Receipt</label>
+                <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-800 font-medium">Bank Transfer Information:</p>
+                  <p className="text-sm text-blue-700">Bank ABC (123456789)</p>
+                  <p className="text-xs text-blue-600 mt-1">Please upload your transfer receipt after payment</p>
+                </div>
                 <input
                   type="file"
                   onChange={handleReceiptChange}
@@ -884,6 +894,38 @@ function MemberDashboard() {
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Transaction Modal */}
+      {showCancelModal && transactionToCancel && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowCancelModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">Confirm Cancellation</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to cancel this transaction? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                No
+              </button>
+              <button
+                onClick={() => handleDeleteTransaction(transactionToCancel.id)}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Yes, Cancel
               </button>
             </div>
           </div>

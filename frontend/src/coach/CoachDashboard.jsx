@@ -1,39 +1,87 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
 
 const menuItems = [
-  { key: 'member', label: 'List Member', icon: '👥' },
+  { key: 'transaction', label: 'Transaction', icon: '💳' },
+  { key: 'profile', label: 'Profile', icon: '👤' },
 ];
 
-const dummyMembers = [
-  { id: 1, name: 'Budi Santoso', username: 'budi123', status: 'Active', joinDate: '2023-01-15' },
-  { id: 2, name: 'Siti Rahayu', username: 'siti456', status: 'Inactive', joinDate: '2023-02-20' },
-  { id: 3, name: 'Ahmad Fauzi', username: 'ahmad789', status: 'Active', joinDate: '2023-03-10' },
-  { id: 4, name: 'Dewi Lestari', username: 'dewi101', status: 'Active', joinDate: '2023-04-05' },
-  { id: 5, name: 'Rudi Hermawan', username: 'rudi202', status: 'Inactive', joinDate: '2023-01-30' },
-];
-
-const formatDate = (dateString) => {
-  const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  return new Date(dateString).toLocaleDateString('id-ID', options);
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 };
 
-const coachProfile = {
-  name: 'Coach Naufal',
-  image: 'https://plus.unsplash.com/premium_photo-1689977807477-a579eda91fa2?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // Ganti path sesuai gambar yang tersedia
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+  const timeOptions = { hour: '2-digit', minute: '2-digit' };
+  
+  const dateStr = date.toLocaleDateString('id-ID', dateOptions);
+  const timeStr = date.toLocaleTimeString('id-ID', timeOptions);
+  
+  return `${dateStr} - ${timeStr}`;
 };
 
 function CoachDashboard() {
-  const [selectedMenu, setSelectedMenu] = useState('member');
+  const [selectedMenu, setSelectedMenu] = useState('transaction');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 3;
-  const { logout } = useAuth();
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editProfile, setEditProfile] = useState({});
+  const [imagePreview, setImagePreview] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const itemsPerPage = 10;
+  const { logout, token, user, refreshUser } = useAuth();
   const navigate = useNavigate();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
+
+  // Fetch transactions assigned to this coach
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/transactions/coach/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch transactions');
+      const data = await response.json();
+      setTransactions(data);
+    } catch (error) {
+      showError('Failed to fetch transactions: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initialize profile data
+  useEffect(() => {
+    if (user) {
+      setEditProfile({
+        name: user.name || '',
+        username: user.username || '',
+        phone_number: user.phone_number || '',
+        date_of_birth: user.date_of_birth ? new Date(user.date_of_birth).toISOString().split('T')[0] : '',
+        gender: user.gender || '',
+        address: user.address || ''
+      });
+      setImagePreview(user.user_image ? `http://localhost:3000${user.user_image}` : null);
+    }
+  }, [user]);
+
+  // Fetch data based on selected menu
+  useEffect(() => {
+    if (selectedMenu === 'transaction') {
+      fetchTransactions();
+    }
+  }, [selectedMenu]);
 
   const handleMenuClick = (key) => {
     if (key === 'logout') {
@@ -56,8 +104,68 @@ function CoachDashboard() {
     setSortConfig({ key, direction });
   };
 
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setEditProfile(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData();
+      formData.append('name', editProfile.name);
+      formData.append('username', editProfile.username);
+      formData.append('phone_number', editProfile.phone_number);
+      formData.append('date_of_birth', editProfile.date_of_birth);
+      formData.append('gender', editProfile.gender);
+      formData.append('address', editProfile.address);
+      
+      if (profileImage) {
+        formData.append('user_image', profileImage);
+      }
+
+      const response = await fetch(`http://localhost:3000/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
+      }
+
+      showSuccess('Profile updated successfully!');
+      setProfileImage(null);
+      
+      // Refresh user data to get updated information
+      await refreshUser();
+    } catch (error) {
+      showError('Failed to update profile: ' + error.message);
+    }
+  };
+
+  const openTransactionModal = (transaction) => {
+    setSelectedTransaction(transaction);
+    setShowTransactionModal(true);
+  };
+
   const filteredData = useMemo(() => {
-    let data = [...dummyMembers];
+    let data = [...transactions];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       data = data.filter(item =>
@@ -78,7 +186,7 @@ function CoachDashboard() {
       });
     }
     return data;
-  }, [searchTerm, sortConfig]);
+  }, [searchTerm, sortConfig, transactions]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentItems = filteredData.slice(
@@ -109,14 +217,23 @@ function CoachDashboard() {
           </div>
           {/* Dummy Coach Profile */}
           <div className="flex items-center gap-3 mb-8 px-2">
-            <img
-              src={coachProfile.image}
-              alt={coachProfile.name}
-              className="h-12 w-12 rounded-full object-cover border-2 border-blue-400"
-              width={48}
-              height={48}
-            />
-            <div className="text-lg font-semibold">{coachProfile.name}</div>
+            {user?.user_image ? (
+              <img
+                src={`http://localhost:3000${user.user_image}`}
+                alt={user.name}
+                className="h-12 w-12 rounded-full object-cover border-2 border-blue-400"
+                width={48}
+                height={48}
+              />
+            ) : (
+              <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold border-2 border-blue-400">
+                {user?.name?.charAt(0) || 'C'}
+              </div>
+            )}
+            <div>
+              <div className="text-lg font-semibold">{user?.name || 'Coach User'}</div>
+              <div className="text-xs text-blue-200">@{user?.username || 'coach'}</div>
+            </div>
           </div>
           <nav className="flex flex-col gap-1">
             {menuItems.map((item) => (
@@ -151,118 +268,281 @@ function CoachDashboard() {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           {/* Header */}
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-800">List Member</h2>
-            <div className="flex justify-between items-center mt-4">
-              <div className="relative w-64">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                />
-                <svg
-                  className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-800">
+              {selectedMenu === 'transaction' ? 'Daftar Transaction' : 'Profile Settings'}
+            </h2>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('id')}
-                  >
-                    ID {getSortIndicator('id')}
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('name')}
-                  >
-                    Member Name {getSortIndicator('name')}
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('username')}
-                  >
-                    Username {getSortIndicator('username')}
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('status')}
-                  >
-                    Status {getSortIndicator('status')}
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort('joinDate')}
-                  >
-                    Join Date {getSortIndicator('joinDate')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentItems.length > 0 ? (
-                  currentItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {item.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-                            {item.name.charAt(0)}
-                          </div>
-                          <div className="ml-4">
-                            <div className="font-medium text-gray-900">{item.name}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        @{item.username}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          item.status === 'Active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(item.joinDate)}
+          {/* Transaction Menu */}
+          {selectedMenu === 'transaction' && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      No
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('transaction_no')}
+                    >
+                      Transaction No {getSortIndicator('transaction_no')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('member.name')}
+                    >
+                      Member {getSortIndicator('member.name')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('package.package_name')}
+                    >
+                      Package {getSortIndicator('package.package_name')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('transaction_status')}
+                    >
+                      Status {getSortIndicator('transaction_status')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('start_date')}
+                    >
+                      Start Date {getSortIndicator('start_date')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('end_date')}
+                    >
+                      End Date {getSortIndicator('end_date')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      Created At {getSortIndicator('created_at')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                        Loading...
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                      No data found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : currentItems.length > 0 ? (
+                    currentItems.map((item, index) => (
+                      <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {(currentPage - 1) * itemsPerPage + index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            {item.transaction_no}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            {item.member?.name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center">
+                            {item.package?.package_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            item.transaction_status === 'active' 
+                              ? 'bg-green-100 text-green-800'
+                              : item.transaction_status === 'processed'
+                              ? 'bg-blue-100 text-blue-800'
+                              : item.transaction_status === 'waiting_for_payment'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : item.transaction_status === 'expired'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {item.transaction_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(item.start_date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(item.end_date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(item.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => openTransactionModal(item)}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                              title="View Transaction Details"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                        No data found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Profile Menu */}
+          {selectedMenu === 'profile' && (
+            <div className="p-8">
+              <div className="flex flex-col md:flex-row gap-8">
+                {/* Left Column - Profile Picture */}
+                <div className="w-full md:w-1/3">
+                  <div className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div className="flex flex-col items-center">
+                      <div className="relative mb-4">
+                        <img
+                          src={imagePreview || 'https://randomuser.me/api/portraits/men/32.jpg'}
+                          alt="Profile"
+                          className="h-40 w-40 rounded-full object-cover border-4 border-white shadow-md"
+                        />
+                        <label 
+                          htmlFor="profileImage"
+                          className="absolute bottom-2 right-2 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition"
+                          title="Change photo"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                          </svg>
+                          <input
+                            id="profileImage"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageChange}
+                          />
+                        </label>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800">{editProfile.name}</h3>
+                      <p className="text-gray-600">@{editProfile.username}</p>
+                    </div>
+
+                    <div className="mt-6 space-y-3">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500">Coach Since</h4>
+                        <p className="text-gray-800">{formatDate(user?.created_at)}</p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500">Coach Status</h4>
+                        <p className="text-green-600 font-medium">Active</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Profile Form */}
+                <div className="w-full md:w-2/3">
+                  <form onSubmit={handleProfileSubmit} className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Personal Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={editProfile.name}
+                          onChange={handleProfileChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input
+                          type="text"
+                          name="username"
+                          value={editProfile.username}
+                          onChange={handleProfileChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                        <input
+                          type="text"
+                          name="phone_number"
+                          value={editProfile.phone_number}
+                          onChange={handleProfileChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                        <input
+                          type="date"
+                          name="date_of_birth"
+                          value={editProfile.date_of_birth}
+                          onChange={handleProfileChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                        <select
+                          name="gender"
+                          value={editProfile.gender}
+                          onChange={handleProfileChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select Gender</option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Address Information</h3>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                        <textarea
+                          name="address"
+                          value={editProfile.address}
+                          onChange={handleProfileChange}
+                          rows="3"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-end">
+                      <button
+                        type="submit"
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Pagination */}
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
@@ -301,6 +581,73 @@ function CoachDashboard() {
           </div>
         </div>
       </main>
+
+      {/* Transaction Modal */}
+      {showTransactionModal && selectedTransaction && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowTransactionModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-4">Transaction Details</h3>
+            
+            {/* Transaction No - Full Width */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 font-bold">Transaction No</p>
+              <p className="text-gray-900 font-mono text-sm">{selectedTransaction.transaction_no}</p>
+            </div>
+            
+            {/* Other Fields - 2x2 Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Member</p>
+                <p className="text-gray-900">{selectedTransaction.member?.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Package</p>
+                <p className="text-gray-900">{selectedTransaction.package?.package_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Amount</p>
+                <p className="text-gray-900">{formatCurrency(selectedTransaction.package?.price)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Status</p>
+                <p className={`font-semibold ${
+                  selectedTransaction.transaction_status === 'active' ? 'text-green-600' :
+                  selectedTransaction.transaction_status === 'processed' ? 'text-blue-600' :
+                  selectedTransaction.transaction_status === 'waiting_for_payment' ? 'text-yellow-600' :
+                  selectedTransaction.transaction_status === 'expired' ? 'text-red-600' :
+                  selectedTransaction.transaction_status === 'canceled' ? 'text-gray-600' : 'text-gray-600'
+                }`}>
+                  {selectedTransaction.transaction_status}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">Start Date</p>
+                <p className="text-gray-900">{formatDate(selectedTransaction.start_date)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-700 font-bold">End Date</p>
+                <p className="text-gray-900">{formatDate(selectedTransaction.end_date)}</p>
+              </div>
+            </div>
+                        
+            {/* Action Buttons */}
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowTransactionModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

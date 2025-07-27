@@ -318,7 +318,7 @@ const updateMemberTransaction = async (req, res) => {
   try {
     const member_id = req.user.id;
     const { id } = req.params;
-    const { coach_id } = req.body;
+    const { coach_id, transaction_status } = req.body;
 
     // Find the transaction and ensure it belongs to the member
     const transaction = await Transaction.findOne({
@@ -339,6 +339,34 @@ const updateMemberTransaction = async (req, res) => {
       return res.status(404).json({ message: 'Transaction not found' });
     }
 
+    // Handle status updates (like cancelling)
+    if (transaction_status && !coach_id && !req.file) {
+      // Allow cancelling transactions in waiting_for_payment status
+      if (transaction_status === 'canceled' && transaction.transaction_status === 'waiting_for_payment') {
+        await transaction.update({ transaction_status: 'canceled' });
+        
+        const updatedTransaction = await Transaction.findByPk(id, {
+          include: [
+            {
+              model: User,
+              as: 'coach',
+              attributes: ['id', 'name', 'username', 'user_image']
+            },
+            {
+              model: Package,
+              as: 'package',
+              attributes: ['id', 'package_name', 'price', 'duration', 'package_image', 'is_coaching_flag']
+            }
+          ]
+        });
+        
+        return res.json(updatedTransaction);
+      }
+      
+      return res.status(400).json({ message: 'Invalid status update' });
+    }
+
+    // Original logic for updating coach and receipt
     // Check if transaction is in waiting for payment status
     if (transaction.transaction_status !== 'waiting_for_payment') {
       return res.status(400).json({ message: 'Transaction cannot be updated in current status' });
@@ -417,6 +445,61 @@ const deleteMemberTransaction = async (req, res) => {
   }
 };
 
+// Cancel member's own transaction
+const cancelMemberTransaction = async (req, res) => {
+  try {
+    console.log('Cancel transaction called');
+    const member_id = req.user.id;
+    const { id } = req.params;
+    
+    console.log('Member ID:', member_id);
+    console.log('Transaction ID:', id);
+
+    // Find the transaction and ensure it belongs to the member
+    const transaction = await Transaction.findOne({
+      where: { 
+        id,
+        member_id 
+      }
+    });
+
+    console.log('Transaction found:', !!transaction);
+
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Only allow cancelling transactions in waiting_for_payment status
+    if (transaction.transaction_status !== 'waiting_for_payment') {
+      return res.status(400).json({ message: 'Transaction cannot be cancelled in current status' });
+    }
+
+    console.log('Updating transaction status to canceled');
+    await transaction.update({ transaction_status: 'canceled' });
+
+    const updatedTransaction = await Transaction.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'coach',
+          attributes: ['id', 'name', 'username', 'user_image']
+        },
+        {
+          model: Package,
+          as: 'package',
+          attributes: ['id', 'package_name', 'price', 'duration', 'package_image', 'is_coaching_flag']
+        }
+      ]
+    });
+
+    console.log('Sending response');
+    res.json(updatedTransaction);
+  } catch (error) {
+    console.error('Error cancelling member transaction:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 // Get all coaches for member selection
 const getCoaches = async (req, res) => {
   try {
@@ -436,6 +519,35 @@ const getCoaches = async (req, res) => {
   }
 };
 
+// Get transactions assigned to a specific coach
+const getCoachTransactions = async (req, res) => {
+  try {
+    const coach_id = req.user.id;
+    
+    const transactions = await Transaction.findAll({
+      where: { coach_id },
+      include: [
+        {
+          model: User,
+          as: 'member',
+          attributes: ['id', 'name', 'username', 'user_image']
+        },
+        {
+          model: Package,
+          as: 'package',
+          attributes: ['id', 'package_name', 'price', 'duration', 'package_image', 'is_coaching_flag']
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    res.json(transactions);
+  } catch (error) {
+    console.error('Error fetching coach transactions:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 module.exports = {
   getAllTransactions,
   getTransactionById,
@@ -445,6 +557,8 @@ module.exports = {
   getMyTransactions,
   createMemberTransaction,
   getCoaches,
+  getCoachTransactions,
   updateMemberTransaction,
-  deleteMemberTransaction
+  deleteMemberTransaction,
+  cancelMemberTransaction
 }; 
