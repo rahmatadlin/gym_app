@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const menuItems = [
   { key: 'package', label: 'Package', icon: '🏋' },
@@ -620,6 +622,124 @@ function AdminDashboard() {
     }
   };
 
+  // PDF Export function for transactions
+  const exportTransactionsToPDF = async () => {
+    try {
+      // Create a temporary div to hold the table content
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '0';
+      tempDiv.style.width = '800px';
+      tempDiv.style.backgroundColor = 'white';
+      tempDiv.style.padding = '20px';
+      tempDiv.style.fontFamily = 'Arial, sans-serif';
+      
+      // Calculate total revenue properly
+      const totalRevenue = filteredData.reduce((sum, item) => {
+        const price = parseFloat(item.package?.price) || 0;
+        return sum + price;
+      }, 0);
+      
+      // Create the PDF content
+      const pdfContent = `
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #1e40af; margin: 0; font-size: 24px;">Montana Fitness</h1>
+          <h2 style="color: #374151; margin: 10px 0; font-size: 18px;">Transaction Report</h2>
+          <p style="color: #6b7280; margin: 0; font-size: 14px;">Generated on: ${new Date().toLocaleDateString('id-ID')}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 9px;">
+          <thead>
+            <tr style="background-color: #f3f4f6;">
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 5%;">No</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Transaction No</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Member</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Package</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 12%;">Amount</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 12%;">Status</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 14%;">Start Date</th>
+              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 14%;">End Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredData.map((item, index) => `
+              <tr style="height: 25px;">
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: center;">${index + 1}</td>
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.transaction_no || '-'}</td>
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.member?.name || '-'}</td>
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.package?.package_name || '-'}</td>
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: right;">${formatCurrency(parseFloat(item.package?.price) || 0)}</td>
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: center;">
+                  <span style="
+                    padding: 2px 4px; 
+                    border-radius: 3px; 
+                    font-size: 7px; 
+                    font-weight: bold;
+                    white-space: nowrap;
+                  ">
+                    ${item.transaction_status}
+                  </span>
+                </td>
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatDate(item.start_date)}</td>
+                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatDate(item.end_date)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="margin-top: 20px; text-align: right; font-size: 10px; color: #6b7280;">
+          <p style="margin: 3px 0; font-weight: bold;">Total Transactions: ${filteredData.length}</p>
+          <p style="margin: 3px 0; font-weight: bold;">Total Revenue: ${formatCurrency(totalRevenue)}</p>
+        </div>
+      `;
+      
+      tempDiv.innerHTML = pdfContent;
+      document.body.appendChild(tempDiv);
+      
+      // Convert to canvas and then to PDF
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        height: tempDiv.scrollHeight,
+        width: tempDiv.scrollWidth
+      });
+      
+      // Remove the temporary div
+      document.body.removeChild(tempDiv);
+      
+      // Create PDF
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const imgWidth = 297; // A4 width in mm
+      const pageHeight = 210; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      // Add first page with top margin
+      pdf.addImage(imgData, 'PNG', 0, 10, imgWidth, imgHeight);
+      heightLeft -= (pageHeight - 20); // Account for top margin
+      
+      // Add subsequent pages with proper spacing
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position + 10, imgWidth, imgHeight); // Add 10mm top margin
+        heightLeft -= (pageHeight - 20); // Account for margins
+      }
+      
+      // Save the PDF
+      const fileName = `transactions_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+      
+      showSuccess('Transaction report exported successfully!');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      showError('Failed to export PDF: ' + error.message);
+    }
+  };
+
   const filteredData = useMemo(() => {
     let data = selectedMenu === 'package' ? [...packages] : selectedMenu === 'transaction' ? [...transactions] : [...members];
     
@@ -814,6 +934,17 @@ function AdminDashboard() {
                     <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
                   Add Member
+                </button>
+              )}
+              {selectedMenu === 'transaction' && (
+                <button 
+                  onClick={exportTransactionsToPDF}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export PDF
                 </button>
               )}
             </div>
