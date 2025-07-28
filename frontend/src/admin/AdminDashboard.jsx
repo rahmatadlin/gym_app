@@ -46,6 +46,7 @@ function AdminDashboard() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [editingMemberId, setEditingMemberId] = useState(null);
   const [editingPackageId, setEditingPackageId] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     username: '',
@@ -798,7 +799,7 @@ function AdminDashboard() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-blue-800 to-blue-900 text-white flex flex-col py-8 px-4 justify-between">
+      <aside className={`${sidebarCollapsed ? 'w-20' : 'w-64'} bg-gradient-to-b from-blue-800 to-blue-900 text-white flex flex-col py-8 px-4 justify-between transition-all duration-300`}>
         <div>
           <div className="flex flex-col items-center mb-8">
             <img
@@ -808,8 +809,12 @@ function AdminDashboard() {
               width={64}
               height={64}
             />
-            <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness</div>
-            <div className="text-sm text-blue-200">Admin Panel</div>
+            {!sidebarCollapsed && (
+              <>
+                <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness</div>
+                <div className="text-sm text-blue-200">Admin Panel</div>
+              </>
+            )}
           </div>
           {/* Admin Profile */}
           <div className="flex items-center gap-3 mb-8 px-2">
@@ -826,10 +831,12 @@ function AdminDashboard() {
                 {user?.name?.charAt(0) || 'A'}
               </div>
             )}
-            <div>
-              <div className="text-lg font-semibold">{user?.name || 'Admin User'}</div>
-              <div className="text-xs text-blue-200">@{user?.username || 'admin'}</div>
-            </div>
+            {!sidebarCollapsed && (
+              <div>
+                <div className="text-lg font-semibold">{user?.name || 'Admin User'}</div>
+                <div className="text-xs text-blue-200">@{user?.username || 'admin'}</div>
+              </div>
+            )}
           </div>
           <nav className="flex flex-col gap-1">
             {menuItems.map((item) => (
@@ -841,26 +848,40 @@ function AdminDashboard() {
                     : 'hover:bg-blue-700/50'
                 }`}
                 onClick={() => handleMenuClick(item.key)}
+                title={sidebarCollapsed ? item.label : ''}
               >
                 <span className="text-lg">{item.icon}</span>
-                {item.label}
+                {!sidebarCollapsed && item.label}
               </button>
             ))}
           </nav>
         </div>
-        <button
-          className="flex items-center gap-3 py-3 px-4 rounded-lg text-left transition-all font-medium hover:bg-blue-700/50 mt-8"
-          onClick={() => handleMenuClick('logout')}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 12H9m0 0l3-3m-3 3l3 3" />
-          </svg>
-          Logout
-        </button>
+        <div>
+          <button
+            className="flex items-center gap-3 py-3 px-4 rounded-lg text-left transition-all font-medium hover:bg-blue-700/50 mb-4 w-full"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d={sidebarCollapsed ? "M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" : "M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"} />
+            </svg>
+            {!sidebarCollapsed && 'Toggle Sidebar'}
+          </button>
+          <button
+            className="flex items-center gap-3 py-3 px-4 rounded-lg text-left transition-all font-medium hover:bg-blue-700/50 w-full"
+            onClick={() => handleMenuClick('logout')}
+            title={sidebarCollapsed ? 'Logout' : ''}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M18 12H9m0 0l3-3m-3 3l3 3" />
+            </svg>
+            {!sidebarCollapsed && 'Logout'}
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
+      <main className={`flex-1 p-8 transition-all duration-300 ${sidebarCollapsed ? 'ml-0' : ''}`}>
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           {/* Header */}
           <div className="p-6 border-b border-gray-200">
@@ -1142,6 +1163,10 @@ function AdminDashboard() {
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               item.package_status === 'active' 
                                 ? 'bg-green-100 text-green-800'
+                                : item.package_status === 'processed'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : item.package_status === 'waiting_for_payment'
+                                ? 'bg-blue-100 text-blue-800'
                                 : 'bg-red-100 text-red-800'
                             }`}>
                               {item.package_status}
@@ -1203,6 +1228,10 @@ function AdminDashboard() {
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               item.transaction_status === 'active' 
                                 ? 'bg-green-100 text-green-800'
+                                : item.transaction_status === 'processed'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : item.transaction_status === 'waiting_for_payment'
+                                ? 'bg-blue-100 text-blue-800'
                                 : 'bg-red-100 text-red-800'
                             }`}>
                               {item.transaction_status}

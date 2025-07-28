@@ -1,9 +1,17 @@
+import { useState } from 'react';
+
 const Header = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   const navLinks = [
     { name: "About", href: "#about" },
     { name: "Classes", href: "#classes" },
     { name: "Contact", href: "#contact" }
   ];
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
@@ -53,6 +61,7 @@ const Header = () => {
             
             {/* Mobile menu button */}
             <button
+              onClick={toggleMobileMenu}
               className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Toggle menu"
             >
@@ -74,13 +83,14 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation (hidden by default) */}
-        <div className="md:hidden hidden">
+        {/* Mobile Navigation */}
+        <div className={`md:hidden ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
           <div className="pt-2 pb-4 space-y-1">
             {navLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800"
               >
                 {link.name}
@@ -88,6 +98,7 @@ const Header = () => {
             ))}
             <a
               href="/login"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="block w-full mt-2 px-3 py-2 rounded-md text-center font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
               Join Now
