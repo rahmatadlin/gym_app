@@ -6,7 +6,7 @@ const Sequelize = require('sequelize');
 const process = require('process');
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../config/config.json')[env];
+const config = require(__dirname + '/../config/config.js')[env];
 const db = {};
 
 require('dotenv').config();
@@ -24,6 +24,12 @@ if (config.use_env_variable) {
       port: process.env.DB_PORT || 5432,
       dialect: config.dialect,
       logging: false,
+      dialectOptions: env === 'production' ? {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false
+        }
+      } : {}
     }
   );
 }
