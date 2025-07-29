@@ -102,6 +102,11 @@ module.exports = (sequelize, DataTypes) => {
     transfer_receipt_image: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    sessions: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      defaultValue: null
     }
   }, {
     sequelize,

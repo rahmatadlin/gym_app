@@ -57,4 +57,10 @@ router.delete('/member/:id', authenticateToken, transactionController.deleteMemb
 // Coach transaction routes
 router.get('/coach/me', authenticateToken, transactionController.getCoachTransactions);
 
+// Get coach transaction count
+router.get('/coach/:coachId/count', authenticateToken, transactionController.getCoachTransactionCount);
+
+// Update transaction sessions
+router.put('/:id/sessions', authenticateToken, transactionController.updateTransactionSessions);
+
 module.exports = router; 

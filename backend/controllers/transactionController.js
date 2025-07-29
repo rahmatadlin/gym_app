@@ -548,6 +548,76 @@ const getCoachTransactions = async (req, res) => {
   }
 };
 
+// Update transaction sessions
+const updateTransactionSessions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sessions } = req.body;
+
+    const transaction = await Transaction.findByPk(id);
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Validate sessions format
+    if (sessions && typeof sessions === 'object') {
+      // Ensure sessions is a valid JSON object with session numbers as keys
+      const validatedSessions = {};
+      for (let i = 1; i <= 12; i++) {
+        validatedSessions[i] = sessions[i] === true;
+      }
+
+      await transaction.update({ sessions: validatedSessions });
+    } else {
+      return res.status(400).json({ message: 'Invalid sessions format' });
+    }
+
+    const updatedTransaction = await Transaction.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'member',
+          attributes: ['id', 'name', 'username', 'user_image']
+        },
+        {
+          model: User,
+          as: 'coach',
+          attributes: ['id', 'name', 'username', 'user_image']
+        },
+        {
+          model: Package,
+          as: 'package',
+          attributes: ['id', 'package_name', 'price', 'duration', 'is_coaching_flag']
+        }
+      ]
+    });
+
+    res.json(updatedTransaction);
+  } catch (error) {
+    console.error('Error updating transaction sessions:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get coach transaction count
+const getCoachTransactionCount = async (req, res) => {
+  try {
+    const { coachId } = req.params;
+    
+    const count = await Transaction.count({
+      where: { 
+        coach_id: coachId,
+        transaction_status: ['active', 'processed', 'waiting_for_payment']
+      }
+    });
+
+    res.json({ count });
+  } catch (error) {
+    console.error('Error fetching coach transaction count:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 module.exports = {
   getAllTransactions,
   getTransactionById,
@@ -560,5 +630,7 @@ module.exports = {
   getCoachTransactions,
   updateMemberTransaction,
   deleteMemberTransaction,
-  cancelMemberTransaction
+  cancelMemberTransaction,
+  updateTransactionSessions,
+  getCoachTransactionCount
 }; 

@@ -37,6 +37,7 @@ function CoachDashboard() {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sessions, setSessions] = useState({});
   const itemsPerPage = 10;
   const { logout, token, user, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -163,6 +164,64 @@ function CoachDashboard() {
   const openTransactionModal = (transaction) => {
     setSelectedTransaction(transaction);
     setShowTransactionModal(true);
+    // Initialize sessions from transaction data or create default
+    const initialSessions = transaction.sessions || {};
+    const defaultSessions = {};
+    for (let i = 1; i <= 12; i++) {
+      defaultSessions[i] = initialSessions[i] || false;
+    }
+    setSessions(defaultSessions);
+  };
+
+  const handleSessionChange = (sessionNumber) => {
+    // Prevent unchecking sessions that are already checked
+    if (sessions[sessionNumber]) {
+      return;
+    }
+
+    // Check if previous sessions are checked (ensure order)
+    for (let i = 1; i < sessionNumber; i++) {
+      if (!sessions[i]) {
+        // Show error message
+        showError(`Session ${i} must be completed before Session ${sessionNumber}`);
+        return;
+      }
+    }
+
+    // Allow checking the session
+    setSessions(prev => ({
+      ...prev,
+      [sessionNumber]: true
+    }));
+  };
+
+  const handleSessionsUpdate = async () => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/transactions/${selectedTransaction.id}/sessions`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sessions })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update sessions');
+      }
+
+      showSuccess('Sessions updated successfully!');
+      // Update the selected transaction with new sessions data
+      const updatedTransaction = await response.json();
+      setSelectedTransaction(updatedTransaction);
+      fetchTransactions(); // Refresh the transactions list
+      
+      // Close the modal after successful update
+      setShowTransactionModal(false);
+    } catch (error) {
+      showError('Failed to update sessions: ' + error.message);
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -656,9 +715,66 @@ function CoachDashboard() {
                 <p className="text-gray-900">{formatDate(selectedTransaction.end_date)}</p>
               </div>
             </div>
+
+            {/* Sessions Section */}
+            {selectedTransaction.transaction_status === 'active' && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 font-bold mb-3">Sessions</p>
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(sessionNumber => {
+                    const isChecked = sessions[sessionNumber] || false;
+                    const canCheck = !isChecked && (sessionNumber === 1 || sessions[sessionNumber - 1]);
+                    const isDisabled = isChecked || !canCheck;
+                    
+                    return (
+                      <div key={sessionNumber} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`session-${sessionNumber}`}
+                          checked={isChecked}
+                          onChange={() => handleSessionChange(sessionNumber)}
+                          disabled={isDisabled}
+                          className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded ${
+                            isChecked 
+                              ? 'text-green-600 bg-green-600 border-green-600' 
+                              : isDisabled 
+                                ? 'text-gray-400 bg-gray-100 border-gray-300 cursor-not-allowed'
+                                : 'text-blue-600 border-gray-300'
+                          }`}
+                        />
+                        <label 
+                          htmlFor={`session-${sessionNumber}`} 
+                          className={`text-sm ${
+                            isChecked 
+                              ? 'text-green-700 font-medium' 
+                              : isDisabled 
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : 'text-gray-700'
+                          }`}
+                        >
+                          Session {sessionNumber}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  <p>• Sessions must be completed in order (1, 2, 3, etc.)</p>
+                  <p>• Completed sessions cannot be unchecked</p>
+                </div>
+              </div>
+            )}
                         
             {/* Action Buttons */}
             <div className="mt-6 flex justify-end space-x-3">
+              {selectedTransaction.transaction_status === 'active' && (
+                <button
+                  onClick={handleSessionsUpdate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Update Sessions
+                </button>
+              )}
               <button
                 onClick={() => setShowTransactionModal(false)}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"

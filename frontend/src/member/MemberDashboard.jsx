@@ -201,9 +201,42 @@ function MemberDashboard() {
     setShowCancelModal(true);
   };
 
-  const handleEditTransactionChange = (e) => {
-    const { name, value } = e.target;
-    setEditTransactionData(prev => ({ ...prev, [name]: value }));
+  const checkCoachTransactionCount = async (coachId) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/transactions/coach/${coachId}/count`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to check coach transaction count');
+      }
+
+      const data = await response.json();
+      return data.count;
+    } catch (error) {
+      console.error('Error checking coach transaction count:', error);
+      return 0;
+    }
+  };
+
+  const handleCoachSelection = async (coachId) => {
+    if (!coachId) {
+      setEditTransactionData(prev => ({ ...prev, coach_id: '' }));
+      return;
+    }
+
+    const transactionCount = await checkCoachTransactionCount(coachId);
+    
+    if (transactionCount >= 5) {
+      showError('This coach has reached the maximum limit of 5 transactions. Please select another coach.');
+      setEditTransactionData(prev => ({ ...prev, coach_id: '' }));
+      return;
+    }
+
+    setEditTransactionData(prev => ({ ...prev, coach_id: coachId }));
   };
 
   const handleReceiptChange = (e) => {
@@ -220,6 +253,12 @@ function MemberDashboard() {
 
   const handleEditTransactionSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate that transfer receipt is uploaded
+    if (!editTransactionData.transfer_receipt_image) {
+      showError('Transfer receipt is required. Please upload your payment receipt.');
+      return;
+    }
     
     try {
       const formData = new FormData();
@@ -368,13 +407,29 @@ function MemberDashboard() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'active': return 'text-green-600';
-      case 'processed': return 'text-blue-600';
-      case 'waiting_for_payment': return 'text-yellow-600';
-      case 'expired': return 'text-red-600';
-      case 'canceled': return 'text-gray-600';
-      default: return 'text-gray-600';
+      case 'active':
+        return 'text-green-600';
+      case 'processed':
+        return 'text-blue-600';
+      case 'waiting_for_payment':
+        return 'text-yellow-600';
+      case 'expired':
+        return 'text-red-600';
+      case 'canceled':
+        return 'text-gray-600';
+      default:
+        return 'text-gray-600';
     }
+  };
+
+  const calculateSessionProgress = (sessions) => {
+    if (!sessions) return { completed: 0, total: 12, percentage: 0 };
+    
+    const completed = Object.values(sessions).filter(session => session === true).length;
+    const total = 12;
+    const percentage = Math.round((completed / total) * 100);
+    
+    return { completed, total, percentage };
   };
 
   return (
@@ -800,7 +855,7 @@ function MemberDashboard() {
                   <select
                     name="coach_id"
                     value={editTransactionData.coach_id}
-                    onChange={handleEditTransactionChange}
+                    onChange={(e) => handleCoachSelection(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Coach</option>
@@ -811,7 +866,9 @@ function MemberDashboard() {
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Receipt</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Transfer Receipt <span className="text-red-500">*</span>
+                </label>
                 <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-800 font-medium">Bank Transfer Information:</p>
                   <p className="text-sm text-blue-700">Bank ABC (123456789)</p>
@@ -820,12 +877,16 @@ function MemberDashboard() {
                 <input
                   type="file"
                   onChange={handleReceiptChange}
+                  required
                   className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
                 {receiptPreview && (
                   <div className="mt-2">
                     <img src={receiptPreview} alt="Transfer Receipt" className="max-w-full h-auto rounded-md" />
                   </div>
+                )}
+                {!editTransactionData.transfer_receipt_image && (
+                  <p className="text-xs text-red-500 mt-1">Transfer receipt is required to complete your transaction</p>
                 )}
               </div>
               <div className="flex justify-end space-x-3">
@@ -897,6 +958,42 @@ function MemberDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Session Progress Section */}
+            {viewTransactionData.package?.is_coaching_flag && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 font-bold mb-3">Session Progress</p>
+                {(() => {
+                  const progress = calculateSessionProgress(viewTransactionData.sessions);
+                  return (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Sessions Completed
+                        </span>
+                        <span className="text-lg font-bold text-blue-600">
+                          {progress.completed}/{progress.total}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                          className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                          style={{ width: `${progress.percentage}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-gray-500">
+                          {progress.percentage}% Complete
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {progress.total - progress.completed} sessions remaining
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
             
             {/* Transfer Receipt Image - Full Width */}
             {viewTransactionData.transfer_receipt_image && (
