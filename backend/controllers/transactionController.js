@@ -29,7 +29,7 @@ const getAllTransactions = async (req, res) => {
         {
           model: Package,
           as: 'package',
-          attributes: ['id', 'package_name', 'price', 'duration']
+          attributes: ['id', 'package_name', 'price', 'duration', 'is_coaching_flag']
         }
       ],
       order: [['created_at', 'DESC']]
@@ -61,7 +61,7 @@ const getTransactionById = async (req, res) => {
         {
           model: Package,
           as: 'package',
-          attributes: ['id', 'package_name', 'price', 'duration']
+          attributes: ['id', 'package_name', 'price', 'duration', 'is_coaching_flag']
         }
       ]
     });
@@ -127,7 +127,7 @@ const createTransaction = async (req, res) => {
         {
           model: Package,
           as: 'package',
-          attributes: ['id', 'package_name', 'price', 'duration']
+          attributes: ['id', 'package_name', 'price', 'duration', 'is_coaching_flag']
         }
       ]
     });
@@ -191,7 +191,7 @@ const updateTransaction = async (req, res) => {
         {
           model: Package,
           as: 'package',
-          attributes: ['id', 'package_name', 'price', 'duration']
+          attributes: ['id', 'package_name', 'price', 'duration', 'is_coaching_flag']
         }
       ]
     });

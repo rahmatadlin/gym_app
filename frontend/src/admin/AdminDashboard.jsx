@@ -44,6 +44,8 @@ function AdminDashboard() {
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [roleFilter, setRoleFilter] = useState('all');
+  const [transactionStatusFilter, setTransactionStatusFilter] = useState('all');
+  const [coachingFlagFilter, setCoachingFlagFilter] = useState('all');
   const [editingMemberId, setEditingMemberId] = useState(null);
   const [editingPackageId, setEditingPackageId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -642,19 +644,24 @@ function AdminDashboard() {
         return sum + price;
       }, 0);
       
-      // Create the PDF content
+      // Create the PDF content with logo and admin info
       const pdfContent = `
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #1e40af; margin: 0; font-size: 24px;">Montana Fitness</h1>
-          <h2 style="color: #374151; margin: 10px 0; font-size: 18px;">Transaction Report</h2>
-          <p style="color: #6b7280; margin: 0; font-size: 14px;">Generated on: ${new Date().toLocaleDateString('id-ID')}</p>
+        <div style="display: flex; align-items: flex-start; margin-bottom: 15px; gap: 15px;">
+          <div style="flex-shrink-0;">
+            <img src="/public/images/montana-logo.jpg" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #fbbf24;" alt="Montana Fitness Logo" />
+          </div>
+          <div style="flex-grow: 1;">
+            <h1 style="color: #1e40af; margin: 0; font-size: 20px;">Montana Fitness</h1>
+            <h2 style="color: #374151; margin: 5px 0; font-size: 14px;">Transaction Report</h2>
+            <p style="color: #6b7280; margin: 0; font-size: 11px;">Generated on: ${new Date().toLocaleDateString('id-ID')}</p>
+            <p style="color: #6b7280; margin: 2px 0; font-size: 10px;">Admin in charge: ${user?.name || 'Admin'}</p>
+          </div>
         </div>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 9px;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9px;">
           <thead>
             <tr style="background-color: #f3f4f6;">
               <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 5%;">No</th>
               <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Transaction No</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Member</th>
               <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Package</th>
               <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 12%;">Amount</th>
               <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 12%;">Status</th>
@@ -667,7 +674,6 @@ function AdminDashboard() {
               <tr style="height: 25px;">
                 <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: center;">${index + 1}</td>
                 <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.transaction_no || '-'}</td>
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.member?.name || '-'}</td>
                 <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.package?.package_name || '-'}</td>
                 <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: right;">${formatCurrency(parseFloat(item.package?.price) || 0)}</td>
                 <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: center;">
@@ -687,7 +693,7 @@ function AdminDashboard() {
             `).join('')}
           </tbody>
         </table>
-        <div style="margin-top: 20px; text-align: right; font-size: 10px; color: #6b7280;">
+        <div style="margin-top: 10px; text-align: right; font-size: 10px; color: #6b7280;">
           <p style="margin: 3px 0; font-weight: bold;">Total Transactions: ${filteredData.length}</p>
           <p style="margin: 3px 0; font-weight: bold;">Total Revenue: ${formatCurrency(totalRevenue)}</p>
         </div>
@@ -759,6 +765,32 @@ function AdminDashboard() {
       data = data.filter(item => item.role === roleFilter);
     }
     
+    // Filter by transaction status (only for transactions)
+    if (selectedMenu === 'transaction' && transactionStatusFilter !== 'all') {
+      data = data.filter(item => item.transaction_status === transactionStatusFilter);
+    }
+    
+    // Filter by coaching flag (only for transactions)
+    if (selectedMenu === 'transaction' && coachingFlagFilter !== 'all') {
+      const isCoaching = coachingFlagFilter === 'true';
+      
+      data = data.filter(item => {
+        // Check if the package exists and has coaching flag
+        if (!item.package) return false;
+        
+        // Handle different data types (boolean, string, number)
+        const coachingFlag = item.package.is_coaching_flag;
+        if (typeof coachingFlag === 'boolean') {
+          return coachingFlag === isCoaching;
+        } else if (typeof coachingFlag === 'string') {
+          return coachingFlag.toLowerCase() === (isCoaching ? 'true' : 'false');
+        } else if (typeof coachingFlag === 'number') {
+          return (coachingFlag === 1) === isCoaching;
+        }
+        return false;
+      });
+    }
+    
     // Sort data
     if (sortConfig.key) {
       data.sort((a, b) => {
@@ -782,7 +814,7 @@ function AdminDashboard() {
     }
     
     return data;
-  }, [selectedMenu, searchTerm, sortConfig, members, roleFilter, packages, transactions]);
+  }, [selectedMenu, searchTerm, sortConfig, members, roleFilter, packages, transactions, transactionStatusFilter, coachingFlagFilter]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -931,6 +963,39 @@ function AdminDashboard() {
                       <option value="member">Member</option>
                       <option value="coach">Coach</option>
                       <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                )}
+                {selectedMenu === 'transaction' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+                    <select
+                      value={transactionStatusFilter}
+                      onChange={(e) => {
+                        setTransactionStatusFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="processed">Processed</option>
+                      <option value="waiting_for_payment">Waiting for Payment</option>
+                      <option value="expired">Expired</option>
+                      <option value="canceled">Canceled</option>
+                    </select>
+                    <span className="text-sm font-medium text-gray-700">Filter by Coaching:</span>
+                    <select
+                      value={coachingFlagFilter}
+                      onChange={(e) => {
+                        setCoachingFlagFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="all">All Packages</option>
+                      <option value="true">With Coaching</option>
+                      <option value="false">Without Coaching</option>
                     </select>
                   </div>
                 )}
