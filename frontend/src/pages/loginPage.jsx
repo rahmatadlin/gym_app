@@ -40,7 +40,7 @@ function LoginPage() {
       {/* Left: Image - Now wider (3:2 ratio) */}
       <div className="hidden md:block w-2/3 relative">
         <img
-          src="https://images.unsplash.com/photo-1547483238-f400e65ccd56?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+          src="https://images.unsplash.com/photo-1519505907962-0a6cb0167c73?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
           alt="Gym Illustration"
           className="absolute inset-0 w-full h-full object-cover"
         />

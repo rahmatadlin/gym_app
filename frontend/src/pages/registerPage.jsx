@@ -184,8 +184,7 @@ function RegisterPage() {
       {/* Right: Image - Now wider (3:2 ratio) */}
       <div className="hidden md:block w-2/3 relative">
         <img
-          src="https://plus.unsplash.com/premium_photo-1664304662480-f9cec19c3f16?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-          alt="Gym Illustration"
+          src="https://images.unsplash.com/photo-1599058917212-d750089bc07e?q=80&w=1469&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r bg-opacity-40 flex items-center justify-center">
