@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { coachScheduleService } from '../utils/coachScheduleService';
 import { bookingService } from '../utils/bookingService';
@@ -7,6 +7,8 @@ import { useToast } from './ToastContainer';
 const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingComplete }) => {
   const [availableSchedules, setAvailableSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
+  
+  // Initialize with empty date
   const [formData, setFormData] = useState({
     booking_date: '',
     start_time: '08:00',
@@ -17,7 +19,7 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
   const { showToast } = useToast();
 
   const daysOfWeek = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+    'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
   ];
 
   // Generate time options (8:00 to 20:00, every hour)
@@ -25,16 +27,6 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
   for (let hour = 8; hour <= 20; hour++) {
     timeOptions.push(`${hour.toString().padStart(2, '0')}:00`);
   }
-
-  useEffect(() => {
-    // Set default date to tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setFormData(prev => ({
-      ...prev,
-      booking_date: tomorrow.toISOString().split('T')[0]
-    }));
-  }, []);
 
   const handleDateChange = async (date) => {
     setFormData(prev => ({ ...prev, booking_date: date }));
@@ -142,7 +134,7 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
               type="date"
               value={formData.booking_date}
               onChange={(e) => handleDateChange(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
+              min={(new Date().getFullYear()) + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -197,7 +189,7 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
               {availableSchedules.length > 0 ? (
                 availableSchedules.map((schedule, index) => (
                   <div key={index} className="text-green-600 font-medium">
-                    ✓ {schedule.start_time} - {schedule.end_time}
+                    ✓ Available: {schedule.start_time} - {schedule.end_time}
                   </div>
                 ))
               ) : (

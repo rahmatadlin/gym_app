@@ -31,8 +31,10 @@ module.exports = (sequelize, DataTypes) => {
 
       if (!schedule) return false;
 
-      // Check if requested time is within coach's available time
-      return startTime >= schedule.start_time && endTime <= schedule.end_time;
+      // Check if requested time overlaps with coach's available time
+      // Requested start time should be before coach's end time AND
+      // Requested end time should be after coach's start time
+      return startTime < schedule.end_time && endTime > schedule.start_time;
     }
 
     // Method to get all available coaches for a specific day and time
@@ -42,10 +44,10 @@ module.exports = (sequelize, DataTypes) => {
           day_of_week: dayOfWeek,
           is_available: true,
           start_time: {
-            [Op.lte]: startTime
+            [Op.lte]: endTime  // Coach's start time should be before or equal to requested end time
           },
           end_time: {
-            [Op.gte]: endTime
+            [Op.gte]: startTime  // Coach's end time should be after or equal to requested start time
           }
         },
         include: [{

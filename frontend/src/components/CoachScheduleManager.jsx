@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { coachScheduleService } from '../utils/coachScheduleService';
 import { useToast } from './ToastContainer';
 
@@ -26,6 +27,41 @@ const CoachScheduleManager = ({ coachId }) => {
     timeOptions.push(`${hour.toString().padStart(2, '0')}:00`);
   }
 
+  // Helper function to format time to HH:00 format
+  const formatTimeToHour = (time) => {
+    if (!time) return '08:00';
+    
+    // Handle different time formats
+    const timeStr = time.toString();
+    
+    // If already in HH:00 format, return as is
+    if (/^\d{2}:\d{2}$/.test(timeStr)) {
+      const [hours] = timeStr.split(':');
+      return `${hours.padStart(2, '0')}:00`;
+    }
+    
+    // Handle HH:MM:SS format from server
+    if (/^\d{2}:\d{2}:\d{2}$/.test(timeStr)) {
+      const [hours] = timeStr.split(':');
+      return `${hours.padStart(2, '0')}:00`;
+    }
+    
+    // If it's just a number (hour), convert to HH:00
+    if (/^\d+$/.test(timeStr)) {
+      return `${timeStr.padStart(2, '0')}:00`;
+    }
+    
+    // Try to extract hour from various formats
+    const hourMatch = timeStr.match(/(\d{1,2})/);
+    if (hourMatch) {
+      const hour = hourMatch[1];
+      return `${hour.padStart(2, '0')}:00`;
+    }
+    
+    // Default fallback
+    return '08:00';
+  };
+
   useEffect(() => {
     if (coachId) {
       fetchSchedules();
@@ -38,6 +74,7 @@ const CoachScheduleManager = ({ coachId }) => {
       const response = await coachScheduleService.getCoachSchedulesByCoachId(coachId);
       setSchedules(response.data || []);
     } catch (error) {
+      console.error('Error fetching schedules:', error);
       showToast('Error fetching schedules', 'error');
     } finally {
       setLoading(false);
@@ -46,8 +83,7 @@ const CoachScheduleManager = ({ coachId }) => {
 
   const handleTimeChange = (field, time) => {
     // Ensure time is in HH:00 format
-    const hour = time.split(':')[0];
-    const formattedTime = `${hour}:00`;
+    const formattedTime = formatTimeToHour(time);
     setFormData({ ...formData, [field]: formattedTime });
   };
 
@@ -88,7 +124,7 @@ const CoachScheduleManager = ({ coachId }) => {
       });
       fetchSchedules();
     } catch (error) {
-      showToast(error.message, 'error');
+      showToast(error.message || 'Error saving schedule', 'error');
     } finally {
       setLoading(false);
     }
@@ -98,8 +134,8 @@ const CoachScheduleManager = ({ coachId }) => {
     setEditingSchedule(schedule);
     setFormData({
       day_of_week: schedule.day_of_week,
-      start_time: schedule.start_time,
-      end_time: schedule.end_time,
+      start_time: formatTimeToHour(schedule.start_time),
+      end_time: formatTimeToHour(schedule.end_time),
       is_available: schedule.is_available
     });
     setShowForm(true);
@@ -289,6 +325,10 @@ const CoachScheduleManager = ({ coachId }) => {
       )}
     </div>
   );
+};
+
+CoachScheduleManager.propTypes = {
+  coachId: PropTypes.string.isRequired,
 };
 
 export default CoachScheduleManager; 
