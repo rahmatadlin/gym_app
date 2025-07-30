@@ -831,7 +831,7 @@ function AdminDashboard() {
           pdf.setFontSize(9);
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(0, 0, 0);
-          pdf.text('Jakarta, ' + new Date().toLocaleDateString('id-ID'), margin, signatureY);
+          pdf.text('Indonesia, ' + new Date().toLocaleDateString('id-ID'), margin, signatureY);
           pdf.text('Admin in Charge,', margin, signatureY + 8);
           
           // Signature line
