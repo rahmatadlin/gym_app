@@ -28,7 +28,7 @@ const Header = () => {
                 height={40}
               />
               <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent dark:from-blue-400 dark:to-cyan-300">
-                MONTANA FITNESS
+                MONTANA FITNESS CENTER
               </span>
             </div>
           </div>

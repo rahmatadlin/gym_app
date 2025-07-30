@@ -46,7 +46,7 @@ function LoginPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-r bg-opacity-40 flex items-center justify-center">
           <div className="text-white p-8 max-w-lg">
-            <h2 className="text-4xl font-bold mb-4">Montana Fitness</h2>
+            <h2 className="text-4xl font-bold mb-4">Montana Fitness Center</h2>
             <p className="text-xl mb-6">Transform your body, transform your life.</p>
             <div className="flex items-center">
               <div className="w-12 h-1 bg-yellow-400 mr-4"></div>
@@ -68,7 +68,7 @@ function LoginPage() {
               />
             </div>
             <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h1>
-            <p className="text-gray-500">Sign in to your Montana Fitness account</p>
+            <p className="text-gray-500">Sign in to your Montana Fitness Center account</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-6">

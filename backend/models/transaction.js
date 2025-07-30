@@ -25,6 +25,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'package_id',
         as: 'package'
       });
+
+      Transaction.hasMany(models.Booking, {
+        foreignKey: 'transaction_id',
+        as: 'bookings'
+      });
     }
 
     // Method to update transaction status
@@ -107,6 +112,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       allowNull: true,
       defaultValue: null
+    },
+    booking_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'Bookings',
+        key: 'id'
+      }
     }
   }, {
     sequelize,

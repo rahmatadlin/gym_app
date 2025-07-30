@@ -651,7 +651,7 @@ function AdminDashboard() {
             <img src="/public/images/montana-logo.jpg" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #fbbf24;" alt="Montana Fitness Logo" />
           </div>
           <div style="flex-grow: 1;">
-            <h1 style="color: #1e40af; margin: 0; font-size: 20px;">Montana Fitness</h1>
+            <h1 style="color: #1e40af; margin: 0; font-size: 20px;">Montana Fitness Center</h1>
             <h2 style="color: #374151; margin: 5px 0; font-size: 14px;">Transaction Report</h2>
             <p style="color: #6b7280; margin: 0; font-size: 11px;">Generated on: ${new Date().toLocaleDateString('id-ID')}</p>
             <p style="color: #6b7280; margin: 2px 0; font-size: 10px;">Admin in charge: ${user?.name || 'Admin'}</p>
@@ -843,7 +843,7 @@ function AdminDashboard() {
             />
             {!sidebarCollapsed && (
               <>
-                <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness</div>
+                <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness Center</div>
                 <div className="text-sm text-blue-200">Admin Panel</div>
               </>
             )}

@@ -2,9 +2,13 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
+import CoachScheduleManager from '../components/CoachScheduleManager.jsx';
+import BookingList from '../components/BookingList.jsx';
 
 const menuItems = [
   { key: 'transaction', label: 'Transaction', icon: '💳' },
+  { key: 'booking', label: 'Bookings', icon: '📋' },
+  { key: 'schedule', label: 'Schedule', icon: '📅' },
   { key: 'profile', label: 'Profile', icon: '👤' },
 ];
 
@@ -38,6 +42,8 @@ function CoachDashboard() {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessions, setSessions] = useState({});
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
   const itemsPerPage = 10;
   const { logout, token, user, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -63,6 +69,26 @@ function CoachDashboard() {
     }
   };
 
+  // Fetch bookings assigned to this coach
+  const fetchBookings = async () => {
+    setBookingsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:3000/api/bookings/coach/${user?.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch bookings');
+      const data = await response.json();
+      setBookings(data.data || []);
+    } catch (error) {
+      showError('Failed to fetch bookings: ' + error.message);
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
   // Initialize profile data
   useEffect(() => {
     if (user) {
@@ -82,6 +108,8 @@ function CoachDashboard() {
   useEffect(() => {
     if (selectedMenu === 'transaction') {
       fetchTransactions();
+    } else if (selectedMenu === 'booking') {
+      fetchBookings();
     }
   }, [selectedMenu]);
 
@@ -274,7 +302,7 @@ function CoachDashboard() {
             />
             {!sidebarCollapsed && (
               <>
-                <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness</div>
+                <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness Center</div>
                 <div className="text-sm text-blue-200">Coach Panel</div>
               </>
             )}
@@ -485,6 +513,32 @@ function CoachDashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Booking Menu */}
+          {selectedMenu === 'booking' && (
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">My Bookings</h2>
+              {bookingsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading bookings...</p>
+                </div>
+              ) : (
+                <BookingList 
+                  coachId={user?.id} 
+                  showActions={true}
+                  isCoach={true}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Schedule Menu */}
+          {selectedMenu === 'schedule' && (
+            <div className="p-8">
+              <CoachScheduleManager coachId={user?.id} />
             </div>
           )}
 

@@ -14,7 +14,7 @@ const Footers = (props) => {
                   className="h-10 w-10 rounded-full border-2 border-yellow-500" 
                   alt="Montana Fitness Logo" 
                 />
-                <span className="ml-3 text-2xl font-bold text-yellow-500">MONTANA FITNESS</span>
+                <span className="ml-3 text-2xl font-bold text-yellow-500">MONTANA FITNESS CENTER</span>
               </div>
               <p className="text-gray-300 text-base">
                 Transform your fitness journey with our state-of-the-art facilities and expert trainers.
@@ -119,7 +119,7 @@ const Footers = (props) => {
         <div className="bg-black w-full py-4">
           <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm mb-2 md:mb-0">
-              © {new Date().getFullYear()} MONTANA FITNESS. All rights reserved.
+              © {new Date().getFullYear()} MONTANA FITNESS CENTER. All rights reserved.
             </p>
             <div className="flex space-x-6">
               <a href="#" className="text-gray-400 hover:text-yellow-500 text-sm transition-colors">

@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
+import BookingForm from '../components/BookingForm.jsx';
+import BookingList from '../components/BookingList.jsx';
 
 const menuItems = [
   { key: 'package', label: 'Package', icon: '🏋' },
   { key: 'transaction', label: 'Transaction', icon: '💳' },
+  { key: 'booking', label: 'Bookings', icon: '📅' },
   { key: 'profile', label: 'Profile', icon: '👤' },
 ];
 
@@ -31,6 +34,7 @@ function MemberDashboard() {
   const [selectedMenu, setSelectedMenu] = useState('package');
   const [packages, setPackages] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState(null);
@@ -50,6 +54,12 @@ function MemberDashboard() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [transactionToCancel, setTransactionToCancel] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [selectedTransactionForBooking, setSelectedTransactionForBooking] = useState(null);
+  
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   const { logout, token, user, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -97,11 +107,46 @@ function MemberDashboard() {
       if (!response.ok) throw new Error('Failed to fetch transactions');
       const data = await response.json();
       setTransactions(data);
+      setFilteredTransactions(data);
     } catch (error) {
       showError('Failed to fetch transactions: ' + error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Filter and search transactions
+  const filterTransactions = () => {
+    let filtered = transactions;
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(transaction => 
+        transaction.transaction_status === statusFilter
+      );
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(transaction => 
+        transaction.transaction_no.toLowerCase().includes(searchLower) ||
+        transaction.package?.package_name.toLowerCase().includes(searchLower) ||
+        transaction.coach?.name.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setFilteredTransactions(filtered);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  // Handle status filter change
+  const handleStatusFilterChange = (e) => {
+    setStatusFilter(e.target.value);
   };
 
   // Fetch coaches
@@ -152,6 +197,11 @@ function MemberDashboard() {
       fetchCoaches();
     }
   }, [selectedMenu]);
+
+  // Filter transactions when search or filter changes
+  useEffect(() => {
+    filterTransactions();
+  }, [searchTerm, statusFilter, transactions]);
 
   const handleMenuClick = (key) => {
     setSelectedMenu(key);
@@ -448,7 +498,7 @@ function MemberDashboard() {
             />
             {!sidebarCollapsed && (
               <>
-                <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness</div>
+                <div className="text-2xl font-bold tracking-wide text-center">Montana Fitness Center</div>
                 <div className="text-sm text-blue-200">Member Panel</div>
               </>
             )}
@@ -570,6 +620,57 @@ function MemberDashboard() {
           {selectedMenu === 'transaction' && (
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Transaction History</h2>
+              
+              {/* Search and Filter Section */}
+              <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Search */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Search Transactions
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by transaction no, package name, or coach name..."
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Filter by Status
+                    </label>
+                    <select
+                      value={statusFilter}
+                      onChange={handleStatusFilterChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="waiting_for_payment">Waiting for Payment</option>
+                      <option value="processed">Processed</option>
+                      <option value="active">Active</option>
+                      <option value="expired">Expired</option>
+                      <option value="canceled">Canceled</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Results Count */}
+                <div className="mt-4 text-sm text-gray-600">
+                  Showing {filteredTransactions.length} of {transactions.length} transactions
+                </div>
+              </div>
+
               {loading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -590,8 +691,8 @@ function MemberDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {transactions.length > 0 ? (
-                        transactions.map((transaction) => (
+                      {filteredTransactions.length > 0 ? (
+                        filteredTransactions.map((transaction) => (
                           <tr key={transaction.id}>
                             <td className="px-6 py-4 border-b font-mono text-sm">{transaction.transaction_no}</td>
                             <td className="px-6 py-4 border-b">{transaction.package?.package_name}</td>
@@ -637,6 +738,20 @@ function MemberDashboard() {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
                                   </button>
+                                  {transaction.package?.is_coaching_flag && transaction.transaction_status === 'active' && (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedTransactionForBooking(transaction);
+                                        setShowBookingForm(true);
+                                      }}
+                                      className="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-green-50 transition-colors"
+                                      title="Book Session"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </td>
@@ -645,7 +760,7 @@ function MemberDashboard() {
                       ) : (
                         <tr>
                           <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                            No transactions found
+                            {searchTerm || statusFilter !== 'all' ? 'No transactions match your search criteria' : 'No transactions found'}
                           </td>
                         </tr>
                       )}
@@ -653,6 +768,14 @@ function MemberDashboard() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Booking Menu */}
+          {selectedMenu === 'booking' && (
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">My Bookings</h2>
+              <BookingList memberId={user?.id} showActions={false} />
             </div>
           )}
 
@@ -1046,6 +1169,48 @@ function MemberDashboard() {
                 Yes, Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Form Modal */}
+      {showBookingForm && selectedTransactionForBooking && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowBookingForm(false);
+            setSelectedTransactionForBooking(null);
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Book a Session</h3>
+              <button
+                onClick={() => {
+                  setShowBookingForm(false);
+                  setSelectedTransactionForBooking(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <BookingForm
+              transactionId={selectedTransactionForBooking.id}
+              memberId={user?.id}
+              coachId={selectedTransactionForBooking.coach_id}
+              coachName={selectedTransactionForBooking.coach?.name || 'Unknown Coach'}
+              onBookingComplete={() => {
+                setShowBookingForm(false);
+                setSelectedTransactionForBooking(null);
+                fetchTransactions();
+              }}
+            />
           </div>
         </div>
       )}

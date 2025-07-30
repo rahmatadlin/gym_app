@@ -7,6 +7,8 @@ const app = express();
 const userRoutes = require('./routes/user');
 const packageRoutes = require('./routes/package');
 const transactionRoutes = require('./routes/transaction');
+const coachScheduleRoutes = require('./routes/coachSchedules');
+const bookingRoutes = require('./routes/bookings');
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -21,6 +23,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/users', userRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/coach-schedules', coachScheduleRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
