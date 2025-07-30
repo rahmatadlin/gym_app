@@ -625,115 +625,255 @@ function AdminDashboard() {
     }
   };
 
-  // PDF Export function for transactions
+  // PDF Export function for transactions with pagination and signature - FIXED VERSION
   const exportTransactionsToPDF = async () => {
     try {
-      // Create a temporary div to hold the table content
-      const tempDiv = document.createElement('div');
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.top = '0';
-      tempDiv.style.width = '800px';
-      tempDiv.style.backgroundColor = 'white';
-      tempDiv.style.padding = '20px';
-      tempDiv.style.fontFamily = 'Arial, sans-serif';
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const pageWidth = 297; // A4 landscape width
+      const pageHeight = 210; // A4 landscape height
+      const margin = 15;
+      const contentWidth = pageWidth - (margin * 2);
       
-      // Calculate total revenue properly
+      // Rows per page (considering header and footer space)
+      const rowsPerPage = 10;
+      const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+      
+      // Calculate total revenue
       const totalRevenue = filteredData.reduce((sum, item) => {
         const price = parseFloat(item.package?.price) || 0;
         return sum + price;
       }, 0);
       
-      // Create the PDF content with logo and admin info
-      const pdfContent = `
-        <div style="display: flex; align-items: flex-start; margin-bottom: 15px; gap: 15px;">
-          <div style="flex-shrink-0;">
-            <img src="/public/images/montana-logo.jpg" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #fbbf24;" alt="Montana Fitness Logo" />
-          </div>
-          <div style="flex-grow: 1;">
-            <h1 style="color: #1e40af; margin: 0; font-size: 20px;">Montana Fitness Center</h1>
-            <h2 style="color: #374151; margin: 5px 0; font-size: 14px;">Transaction Report</h2>
-            <p style="color: #6b7280; margin: 0; font-size: 11px;">Generated on: ${new Date().toLocaleDateString('id-ID')}</p>
-            <p style="color: #6b7280; margin: 2px 0; font-size: 10px;">Admin in charge: ${user?.name || 'Admin'}</p>
-          </div>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 5%;">No</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Transaction No</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 15%;">Package</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 12%;">Amount</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 12%;">Status</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 14%;">Start Date</th>
-              <th style="border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 9px; font-weight: bold; width: 14%;">End Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filteredData.map((item, index) => `
-              <tr style="height: 25px;">
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: center;">${index + 1}</td>
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.transaction_no || '-'}</td>
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.package?.package_name || '-'}</td>
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: right;">${formatCurrency(parseFloat(item.package?.price) || 0)}</td>
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; text-align: center;">
-                  <span style="
-                    padding: 2px 4px; 
-                    border-radius: 3px; 
-                    font-size: 7px; 
-                    font-weight: bold;
-                    white-space: nowrap;
-                  ">
-                    ${item.transaction_status}
-                  </span>
-                </td>
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatDate(item.start_date)}</td>
-                <td style="border: 1px solid #d1d5db; padding: 6px; font-size: 8px; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${formatDate(item.end_date)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div style="margin-top: 10px; text-align: right; font-size: 10px; color: #6b7280;">
-          <p style="margin: 3px 0; font-weight: bold;">Total Transactions: ${filteredData.length}</p>
-          <p style="margin: 3px 0; font-weight: bold;">Total Revenue: ${formatCurrency(totalRevenue)}</p>
-        </div>
-      `;
+      // Function to add header to each page
+      const addHeader = async (pageNum) => {
+        try {
+          // Add actual logo
+          const logoResponse = await fetch('/public/images/montana-logo.jpg');
+          const logoBlob = await logoResponse.blob();
+          const logoUrl = URL.createObjectURL(logoBlob);
+          
+          // Add logo to PDF (positioned at top-left)
+          pdf.addImage(logoUrl, 'JPEG', 15, 15, 20, 20);
+          
+          // Company info (moved to the right of logo)
+          pdf.setFontSize(18);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(30, 64, 175); // Blue color
+          pdf.text('Montana Fitness Center', 45, 22);
+          
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(55, 65, 81); // Gray color
+          pdf.text('Transaction Report', 45, 30);
+          
+          pdf.setFontSize(9);
+          pdf.setTextColor(107, 114, 128); // Light gray
+          pdf.text(`Generated on: ${new Date().toLocaleDateString('id-ID')}`, 45, 36);
+          pdf.text(`Admin in charge: ${user?.name || 'Admin'}`, 45, 41);
+          pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin - 30, 36);
+          
+          // Add line separator
+          pdf.setDrawColor(209, 213, 219);
+          pdf.setLineWidth(0.5);
+          pdf.line(margin, 48, pageWidth - margin, 48);
+        } catch {
+          // Fallback to placeholder if logo fails to load
+          pdf.setFillColor(251, 191, 36); // Yellow color for logo placeholder
+          pdf.circle(30, 25, 8, 'F');
+          
+          // Company info
+          pdf.setFontSize(18);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(30, 64, 175); // Blue color
+          pdf.text('Montana Fitness Center', 45, 22);
+          
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(55, 65, 81); // Gray color
+          pdf.text('Transaction Report', 45, 30);
+          
+          pdf.setFontSize(9);
+          pdf.setTextColor(107, 114, 128); // Light gray
+          pdf.text(`Generated on: ${new Date().toLocaleDateString('id-ID')}`, 45, 36);
+          pdf.text(`Admin in charge: ${user?.name || 'Admin'}`, 45, 41);
+          pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin - 30, 36);
+          
+          // Add line separator
+          pdf.setDrawColor(209, 213, 219);
+          pdf.setLineWidth(0.5);
+          pdf.line(margin, 48, pageWidth - margin, 48);
+        }
+      };
       
-      tempDiv.innerHTML = pdfContent;
-      document.body.appendChild(tempDiv);
+      // Function to add table header
+      const addTableHeader = (startY) => {
+        pdf.setFillColor(243, 244, 246); // Light gray background
+        pdf.rect(margin, startY, contentWidth, 12, 'F');
+        
+        // Table header borders
+        pdf.setDrawColor(209, 213, 219);
+        pdf.setLineWidth(0.3);
+        
+        // FIXED: Better column width distribution for clean layout
+        const colWidths = [8, 90, 55, 22, 24, 35, 33];// Total: 237mm (Package reduced from 80 to 60)
+        let currentX = margin;
+        
+        // Draw header cells and text
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(0, 0, 0);
+        
+        const headers = ['No', 'Transaction No', 'Package', 'Amount', 'Status', 'Start Date', 'End Date'];
+        
+        headers.forEach((header, index) => {
+          // Draw cell border
+          pdf.rect(currentX, startY, colWidths[index], 12);
+          
+          // Add text (centered vertically)
+          pdf.text(header, currentX + (colWidths[index] / 2), startY + 8, { align: 'center' });
+          currentX += colWidths[index];
+        });
+        
+        return startY + 12; // Return Y position after header
+      };
       
-      // Convert to canvas and then to PDF
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        height: tempDiv.scrollHeight,
-        width: tempDiv.scrollWidth
-      });
+      // Helper function to ensure text fits (no truncation, just return as is)
+      const formatDisplayText = (text) => {
+        return text || '-';
+      };
       
-      // Remove the temporary div
-      document.body.removeChild(tempDiv);
+      // Function to add table rows
+      const addTableRows = (data, startY) => {
+        const colWidths = [8, 90, 55, 22, 24, 35, 33]; // Same as header
+        const rowHeight = 10;
+        let currentY = startY;
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6.5); // Slightly smaller font for better fit
+        
+        data.forEach((item, index) => {
+          let currentX = margin;
+          
+          // Alternate row colors
+          if (index % 2 === 1) {
+            pdf.setFillColor(249, 250, 251);
+            pdf.rect(margin, currentY, contentWidth, rowHeight, 'F');
+          }
+          
+          // Draw cell borders
+          pdf.setDrawColor(209, 213, 219);
+          pdf.setLineWidth(0.2);
+          
+          const rowData = [
+            (filteredData.indexOf(item) + 1).toString(),
+            item.transaction_no || '-',
+            item.package?.package_name || '-',
+            formatCurrency(parseFloat(item.package?.price) || 0),
+            item.transaction_status || '-',
+            formatDate(item.start_date),
+            formatDate(item.end_date)
+          ];
+          
+          rowData.forEach((cellData, cellIndex) => {
+            // Draw cell border
+            pdf.rect(currentX, currentY, colWidths[cellIndex], rowHeight);
+            
+            // FIXED: No truncation, just format text properly
+            let displayText = formatDisplayText(cellData);
+            
+            // Add text with proper alignment
+            let textAlign = 'left';
+            let textX = currentX + 1.5; // Reduced padding for more space
+            
+            if (cellIndex === 0 || cellIndex === 4) { // No and Status - center
+              textAlign = 'center';
+              textX = currentX + (colWidths[cellIndex] / 2);
+            } else if (cellIndex === 3) { // Amount - right align
+              textAlign = 'right';
+              textX = currentX + colWidths[cellIndex] - 1.5;
+            }
+            
+            pdf.text(displayText, textX, currentY + 6.5, { align: textAlign });
+            currentX += colWidths[cellIndex];
+          });
+          
+          currentY += rowHeight;
+        });
+        
+        return currentY;
+      };
       
-      // Create PDF
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('landscape', 'mm', 'a4');
-      const imgWidth = 297; // A4 width in mm
-      const pageHeight = 210; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
+      // Function to add footer with summary and signature
+      const addFooter = (pageNum, isLastPage = false) => {
+        if (isLastPage) {
+          // Summary section
+          const summaryY = pageHeight - 50;
+          
+          // Summary box
+          pdf.setFillColor(248, 250, 252);
+          pdf.rect(pageWidth - margin - 80, summaryY, 80, 25, 'F');
+          pdf.setDrawColor(209, 213, 219);
+          pdf.rect(pageWidth - margin - 80, summaryY, 80, 25);
+          
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('SUMMARY', pageWidth - margin - 75, summaryY + 6);
+          
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(`Total Transactions: ${filteredData.length}`, pageWidth - margin - 75, summaryY + 12);
+          pdf.text(`Total Revenue: ${formatCurrency(totalRevenue)}`, pageWidth - margin - 75, summaryY + 18);
+          
+          // Signature section
+          const signatureY = pageHeight - 45;
+          
+          pdf.setFontSize(9);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('Jakarta, ' + new Date().toLocaleDateString('id-ID'), margin, signatureY);
+          pdf.text('Admin in Charge,', margin, signatureY + 8);
+          
+          // Signature line
+          pdf.setDrawColor(0, 0, 0);
+          pdf.setLineWidth(0.5);
+          pdf.line(margin, signatureY + 25, margin + 60, signatureY + 25);
+          
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(user?.name || 'Admin Name', margin, signatureY + 30);
+        }
+        
+        // Page footer
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(107, 114, 128);
+        pdf.text(`Montana Fitness Center - Transaction Report`, margin, pageHeight - 8);
+        pdf.text(`Generated on ${new Date().toLocaleDateString('id-ID')} at ${new Date().toLocaleTimeString('id-ID')}`, 
+                pageWidth - margin - 50, pageHeight - 8);
+      };
       
-      // Add first page with top margin
-      pdf.addImage(imgData, 'PNG', 0, 10, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 20); // Account for top margin
-      
-      // Add subsequent pages with proper spacing
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position + 10, imgWidth, imgHeight); // Add 10mm top margin
-        heightLeft -= (pageHeight - 20); // Account for margins
+      // Generate pages
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        if (pageNum > 1) {
+          pdf.addPage();
+        }
+        
+        // Add header
+        await addHeader(pageNum);
+        
+        // Add table header
+        let currentY = addTableHeader(55);
+        
+        // Get data for current page
+        const startIndex = (pageNum - 1) * rowsPerPage;
+        const endIndex = Math.min(startIndex + rowsPerPage, filteredData.length);
+        const pageData = filteredData.slice(startIndex, endIndex);
+        
+        // Add table rows
+        currentY = addTableRows(pageData, currentY);
+        
+        // Add footer
+        addFooter(pageNum, pageNum === totalPages);
       }
       
       // Save the PDF
