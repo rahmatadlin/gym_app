@@ -3,7 +3,6 @@ import { useAuth } from '../components/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer.jsx';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 const menuItems = [
   { key: 'package', label: 'Package', icon: '🏋' },
@@ -635,8 +634,8 @@ function AdminDashboard() {
       const contentWidth = pageWidth - (margin * 2);
       
       // Rows per page (considering header and footer space)
-      const rowsPerPage = 10;
-      const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+      const pdfRowsPerPage = 8; // Reduced to make room for summary row
+      const totalPages = Math.ceil(filteredData.length / pdfRowsPerPage);
       
       // Calculate total revenue
       const totalRevenue = filteredData.reduce((sum, item) => {
@@ -803,44 +802,91 @@ function AdminDashboard() {
         return currentY;
       };
       
-      // Function to add footer with summary and signature
+      // Function to add summary row
+      const addSummaryRow = (startY) => {
+        const colWidths = [8, 90, 55, 22, 24, 35, 33];
+        const rowHeight = 12;
+        let currentX = margin;
+        
+        // Summary row with different background
+        pdf.setFillColor(240, 249, 255); // Light blue background
+        pdf.rect(margin, startY, contentWidth, rowHeight, 'F');
+        
+        // Draw cell borders
+        pdf.setDrawColor(59, 130, 246); // Blue borders
+        pdf.setLineWidth(0.3);
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7);
+        pdf.setTextColor(30, 64, 175); // Blue text
+        
+        const summaryData = [
+          '',
+          'SUMMARY',
+          '',
+          formatCurrency(totalRevenue),
+          `${filteredData.length} transactions`,
+          '',
+          ''
+        ];
+        
+        summaryData.forEach((cellData, cellIndex) => {
+          // Draw cell border
+          pdf.rect(currentX, startY, colWidths[cellIndex], rowHeight);
+          
+          // Add text with proper alignment
+          let textAlign = 'left';
+          let textX = currentX + 1.5;
+          
+          if (cellIndex === 1) { // Summary label - center
+            textAlign = 'center';
+            textX = currentX + (colWidths[cellIndex] / 2);
+          } else if (cellIndex === 3) { // Total revenue - right align
+            textAlign = 'right';
+            textX = currentX + colWidths[cellIndex] - 1.5;
+          } else if (cellIndex === 4) { // Transaction count - center
+            textAlign = 'center';
+            textX = currentX + (colWidths[cellIndex] / 2);
+          }
+          
+          pdf.text(cellData, textX, startY + 8, { align: textAlign });
+          currentX += colWidths[cellIndex];
+        });
+        
+        return startY + rowHeight;
+      };
+      
+      // Function to add footer with signatures
       const addFooter = (pageNum, isLastPage = false) => {
         if (isLastPage) {
-          // Summary section
-          const summaryY = pageHeight - 50;
+          // Signature section at bottom right
+          const signatureY = pageHeight - 35;
           
-          // Summary box
-          pdf.setFillColor(248, 250, 252);
-          pdf.rect(pageWidth - margin - 80, summaryY, 80, 25, 'F');
-          pdf.setDrawColor(209, 213, 219);
-          pdf.rect(pageWidth - margin - 80, summaryY, 80, 25);
-          
-          pdf.setFontSize(9);
-          pdf.setFont('helvetica', 'bold');
-          pdf.setTextColor(0, 0, 0);
-          pdf.text('SUMMARY', pageWidth - margin - 75, summaryY + 6);
-          
-          pdf.setFontSize(8);
-          pdf.setFont('helvetica', 'normal');
-          pdf.text(`Total Transactions: ${filteredData.length}`, pageWidth - margin - 75, summaryY + 12);
-          pdf.text(`Total Revenue: ${formatCurrency(totalRevenue)}`, pageWidth - margin - 75, summaryY + 18);
-          
-          // Signature section
-          const signatureY = pageHeight - 45;
-          
+          // Admin signature
           pdf.setFontSize(9);
           pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(0, 0, 0);
-          pdf.text('Indonesia, ' + new Date().toLocaleDateString('id-ID'), margin, signatureY);
-          pdf.text('Admin in Charge,', margin, signatureY + 8);
+          pdf.text('Indonesia, ' + new Date().toLocaleDateString('id-ID'), pageWidth - margin - 140, signatureY);
+          pdf.text('Admin in Charge,', pageWidth - margin - 140, signatureY + 8);
           
-          // Signature line
+          // Admin signature line
           pdf.setDrawColor(0, 0, 0);
           pdf.setLineWidth(0.5);
-          pdf.line(margin, signatureY + 25, margin + 60, signatureY + 25);
+          pdf.line(pageWidth - margin - 140, signatureY + 25, pageWidth - margin - 80, signatureY + 25);
           
           pdf.setFont('helvetica', 'bold');
-          pdf.text(user?.name || 'Admin Name', margin, signatureY + 30);
+          pdf.text(user?.name || 'Admin Name', pageWidth - margin - 140, signatureY + 30);
+          
+          // Owner signature
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('Owner,', pageWidth - margin - 60, signatureY + 8);
+          
+          // Owner signature line
+          pdf.line(pageWidth - margin - 60, signatureY + 25, pageWidth - margin, signatureY + 25);
+          
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Owner Montana', pageWidth - margin - 60, signatureY + 30);
         }
         
         // Page footer
@@ -848,8 +894,6 @@ function AdminDashboard() {
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(107, 114, 128);
         pdf.text(`Montana Fitness Center - Transaction Report`, margin, pageHeight - 8);
-        pdf.text(`Generated on ${new Date().toLocaleDateString('id-ID')} at ${new Date().toLocaleTimeString('id-ID')}`, 
-                pageWidth - margin - 50, pageHeight - 8);
       };
       
       // Generate pages
@@ -865,12 +909,17 @@ function AdminDashboard() {
         let currentY = addTableHeader(55);
         
         // Get data for current page
-        const startIndex = (pageNum - 1) * rowsPerPage;
-        const endIndex = Math.min(startIndex + rowsPerPage, filteredData.length);
+        const startIndex = (pageNum - 1) * pdfRowsPerPage;
+        const endIndex = Math.min(startIndex + pdfRowsPerPage, filteredData.length);
         const pageData = filteredData.slice(startIndex, endIndex);
         
         // Add table rows
         currentY = addTableRows(pageData, currentY);
+        
+        // Add summary row on last page
+        if (pageNum === totalPages) {
+          currentY = addSummaryRow(currentY);
+        }
         
         // Add footer
         addFooter(pageNum, pageNum === totalPages);

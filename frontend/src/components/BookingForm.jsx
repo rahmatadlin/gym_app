@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { coachScheduleService } from '../utils/coachScheduleService';
 import { bookingService } from '../utils/bookingService';
@@ -6,7 +6,9 @@ import { useToast } from './ToastContainer';
 
 const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingComplete }) => {
   const [availableSchedules, setAvailableSchedules] = useState([]);
+  const [coachAvailableDays, setCoachAvailableDays] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingDays, setLoadingDays] = useState(false);
   
   // Initialize with empty date
   const [formData, setFormData] = useState({
@@ -27,6 +29,28 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
   for (let hour = 8; hour <= 20; hour++) {
     timeOptions.push(`${hour.toString().padStart(2, '0')}:00`);
   }
+
+  // Fetch coach's available days when component mounts
+  useEffect(() => {
+    fetchCoachAvailableDays();
+  }, [coachId]);
+
+  const fetchCoachAvailableDays = async () => {
+    try {
+      setLoadingDays(true);
+      const response = await coachScheduleService.getCoachSchedulesByCoachId(coachId);
+      const schedules = response.data || [];
+      
+      // Get unique available days
+      const availableDays = [...new Set(schedules.map(schedule => schedule.day_of_week))];
+      setCoachAvailableDays(availableDays);
+    } catch (error) {
+      console.error('Error fetching coach available days:', error);
+      showToast('Error fetching coach schedule', 'error');
+    } finally {
+      setLoadingDays(false);
+    }
+  };
 
   const handleDateChange = async (date) => {
     setFormData(prev => ({ ...prev, booking_date: date }));
@@ -114,6 +138,10 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
     return daysOfWeek[bookingDate.getDay()];
   };
 
+  const isDayAvailable = (dayOfWeek) => {
+    return coachAvailableDays.includes(dayOfWeek);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Book a Session</h2>
@@ -122,6 +150,34 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
       <div className="mb-6 p-4 bg-blue-50 rounded-lg">
         <h3 className="font-semibold text-blue-800 mb-2">Coach Information</h3>
         <p className="text-blue-700"><strong>Coach:</strong> {coachName}</p>
+        
+        {/* Coach Available Days */}
+        <div className="mt-3">
+          <h4 className="font-medium text-blue-800 mb-2">Available Days:</h4>
+          {loadingDays ? (
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span className="text-sm text-blue-600">Loading available days...</span>
+            </div>
+          ) : coachAvailableDays.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {daysOfWeek.map((day) => (
+                <span
+                  key={day}
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    isDayAvailable(day)
+                      ? 'bg-green-100 text-green-800 border border-green-200'
+                      : 'bg-gray-100 text-gray-500 border border-gray-200'
+                  }`}
+                >
+                  {day.slice(0, 3)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-red-600">No available days found for this coach</p>
+          )}
+        </div>
       </div>
       
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -139,9 +195,16 @@ const BookingForm = ({ transactionId, memberId, coachId, coachName, onBookingCom
               required
             />
             {formData.booking_date && (
-              <p className="text-sm text-gray-500 mt-1">
-                {getDayOfWeek(formData.booking_date)}
-              </p>
+              <div className="mt-1">
+                <p className="text-sm text-gray-500">
+                  {getDayOfWeek(formData.booking_date)}
+                </p>
+                {!isDayAvailable(getDayOfWeek(formData.booking_date)) && (
+                  <p className="text-sm text-red-600 font-medium">
+                    ⚠️ Coach is not available on this day
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
